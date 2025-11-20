@@ -1,0 +1,26 @@
+{
+    "ocr_engines": {
+        "current": "google-cloud-vision",
+        "engines": {
+            "pytesseract": {
+                "provider": "pytesseract",
+                "description": "基于 Tesseract 的本地 OCR 引擎",
+                "languages": "chi_sim+eng",
+                "oem": 3,
+                "psm": 6,
+                "custom_words_path": "configs/ocr/custom_words.txt",
+                "custom_patterns_path": "configs/ocr/custom_patterns.txt"
+            },
+            "google-cloud-vision": {
+                "provider": "google-cloud-vision",
+                "description": "Google Cloud Vision API，高精度 OCR 服务",
+                "language_hints": [
+                    "zh",
+                    "en"
+                ],
+                "enable_text_detection": true,
+                "credentials_path": "credentials/google_vision.json"
+            }
+        }
+    }
+}

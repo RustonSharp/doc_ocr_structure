@@ -1,0 +1,12 @@
+{
+    "title": "配置文件标题",
+    "description": "配置文件描述",
+    "items": [
+        {
+            "field": "字段名称",
+            "description": "字段描述，例如：在发票右上角'开票日期：'后面",
+            "type": "字段类型，例如：text、number、date、boolean、array、object",
+            "pattern": "拉取数据的正则表达式，可以参考description和type字段来生成"
+        }
+    ]
+}

@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文档 OCR 测试台</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <main class="container">
+        <section class="panel upload-panel">
+            <div class="panel-header">
+                <h1>文档 OCR 测试台</h1>
+                <p>上传一张发票/文档图片，调用后端 <code>/ocr</code> 接口完成识别及结构化。</p>
+            </div>
+
+            <form id="uploadForm" class="upload-form">
+                <label class="file-input">
+                    <input type="file" id="fileInput" accept="image/*" required>
+                    <span id="fileLabel">点击或拖拽图片到此处</span>
+                </label>
+
+                <div class="preview-wrapper">
+                    <p class="preview-title">原始图片预览</p>
+                    <div class="preview-box" id="previewBox">
+                        <span class="placeholder">选择图片后会显示预览</span>
+                        <img id="imagePreview" alt="上传图片预览" hidden>
+                    </div>
+                </div>
+
+                <button type="submit" class="primary-btn">开始识别</button>
+                <p id="statusMessage" class="status-message"></p>
+            </form>
+        </section>
+
+        <section class="panel results-panel">
+            <div class="panel-header">
+                <h2>接口返回</h2>
+                <p>展示 FastAPI <code>POST /ocr</code> 返回的数据。</p>
+            </div>
+
+            <div class="result-block">
+                <h3>预处理后的图片</h3>
+                <div class="preview-box small">
+                    <span class="placeholder" id="processedPlaceholder">等待接口返回...</span>
+                    <img id="processedPreview" alt="预处理图片" hidden>
+                </div>
+            </div>
+
+            <div class="result-block">
+                <h3>OCR 识别结果</h3>
+                <pre id="ocrResult" class="json-viewer">等待返回...</pre>
+            </div>
+
+            <div class="result-block">
+                <h3>LLM 结构化结果</h3>
+                <pre id="llmResult" class="json-viewer">等待返回...</pre>
+            </div>
+        </section>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+</html>
+

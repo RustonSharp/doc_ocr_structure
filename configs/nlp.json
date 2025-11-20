@@ -1,0 +1,16 @@
+{
+    "nlp_processing": {
+        "enabled": true,
+        "text_cleaning": {
+            "remove_extra_spaces": true,
+            "remove_special_chars": false,
+            "normalize_whitespace": true
+        },
+        "keyword_extraction": {
+            "enabled": false,
+            "method": "regex"
+        },
+        "structure_config_path": "configs/structures/origin/invoice0.json"
+    }
+}
+
