@@ -153,6 +153,147 @@ code {
     border-radius: 6px;
 }
 
+.coverage-info {
+    margin-bottom: 16px;
+    padding: 12px;
+    background: #eff6ff;
+    border-radius: 8px;
+    color: #1e40af;
+}
+
+.fields-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 12px;
+}
+
+.fields-table th,
+.fields-table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.fields-table th {
+    background: #f9fafb;
+    font-weight: 600;
+    color: #374151;
+}
+
+.fields-table tr.needs-validation {
+    background: #fef2f2;
+}
+
+.fields-table tr.valid {
+    background: #f0fdf4;
+}
+
+.confidence {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+.confidence.low {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.confidence.medium {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.confidence.high {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.validation-list {
+    list-style: none;
+    padding: 0;
+}
+
+.validation-list li {
+    padding: 12px;
+    margin-bottom: 8px;
+    background: #fef2f2;
+    border-left: 4px solid #ef4444;
+    border-radius: 4px;
+}
+
+.no-validation {
+    padding: 16px;
+    background: #f0fdf4;
+    border-radius: 8px;
+    color: #065f46;
+}
+
+.editor-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 12px;
+}
+
+.editor-table th,
+.editor-table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.editor-table th {
+    background: #f9fafb;
+    font-weight: 600;
+}
+
+.editor-table input[type="text"] {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    font-size: 0.875rem;
+}
+
+.editor-table input[type="text"]:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+#pdfPageSelector {
+    padding: 12px;
+    background: #f9fafb;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+}
+
+#pdfPageSelector label {
+    font-weight: 600;
+    color: #374151;
+}
+
+#pdfPageSelector select {
+    padding: 6px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    margin-left: 8px;
+    cursor: pointer;
+    background: white;
+}
+
+#pdfPageSelector select:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+#pageInfo {
+    font-size: 0.9rem;
+}
+
 @media (max-width: 768px) {
     body {
         padding: 16px;

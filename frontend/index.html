@@ -17,15 +17,15 @@
 
             <form id="uploadForm" class="upload-form">
                 <label class="file-input">
-                    <input type="file" id="fileInput" accept="image/*" required>
-                    <span id="fileLabel">点击或拖拽图片到此处</span>
+                    <input type="file" id="fileInput" accept="image/*,.pdf" required>
+                    <span id="fileLabel">点击或拖拽图片/PDF到此处</span>
                 </label>
 
                 <div class="preview-wrapper">
-                    <p class="preview-title">原始图片预览</p>
+                    <p class="preview-title">原始文件预览</p>
                     <div class="preview-box" id="previewBox">
-                        <span class="placeholder">选择图片后会显示预览</span>
-                        <img id="imagePreview" alt="上传图片预览" hidden>
+                        <span class="placeholder">选择文件后会显示预览</span>
+                        <img id="imagePreview" alt="上传文件预览" hidden>
                     </div>
                 </div>
 
@@ -42,6 +42,13 @@
 
             <div class="result-block">
                 <h3>预处理后的图片</h3>
+                <div id="pdfPageSelector" style="display:none; margin-bottom: 12px;">
+                    <label>选择页面: 
+                        <select id="pageSelect">
+                        </select>
+                    </label>
+                    <span id="pageInfo" style="margin-left: 12px; color: #6b7280;"></span>
+                </div>
                 <div class="preview-box small">
                     <span class="placeholder" id="processedPlaceholder">等待接口返回...</span>
                     <img id="processedPreview" alt="预处理图片" hidden>
@@ -54,8 +61,22 @@
             </div>
 
             <div class="result-block">
-                <h3>LLM 结构化结果</h3>
-                <pre id="llmResult" class="json-viewer">等待返回...</pre>
+                <h3>结构化结果</h3>
+                <div id="structuredResult">等待返回...</div>
+            </div>
+
+            <div class="result-block">
+                <h3>待校验字段清单</h3>
+                <div id="validationList">等待返回...</div>
+            </div>
+
+            <div class="result-block">
+                <h3>字段修正</h3>
+                <div id="fieldEditor">
+                    <p>在下方修正字段值后，点击"重新生成"按钮</p>
+                    <div id="editableFields"></div>
+                    <button id="regenerateBtn" class="primary-btn" style="display:none;">重新生成结构化结果</button>
+                </div>
             </div>
         </section>
     </main>

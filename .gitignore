@@ -1,6 +1,9 @@
 # 凭证和敏感信息
 credentials/
+output/
 .env
+req.md
+
 *.key
 *.pem
 
