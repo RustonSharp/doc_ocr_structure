@@ -283,7 +283,7 @@ function renderBatchResults(data) {
         </div>
     `;
     
-    // 显示详细信息
+    // 显示详细信息（折叠列表）
     let detailsHtml = '<div class="batch-details-list">';
     const results = data.results || [];
     
@@ -291,53 +291,186 @@ function renderBatchResults(data) {
         const isSuccess = result.status === "success";
         const statusClass = isSuccess ? "success" : "error";
         const statusIcon = isSuccess ? "✓" : "✗";
+        const itemId = `batch-item-${index}`;
+        const contentId = `batch-content-${index}`;
         
         detailsHtml += `
             <div class="batch-item ${statusClass}">
-                <div class="batch-item-header">
+                <div class="batch-item-header" onclick="toggleBatchItem('${contentId}')">
                     <span class="batch-item-status">${statusIcon}</span>
                     <span class="batch-item-name">${result.filename || `文件 ${index + 1}`}</span>
                     ${result.page ? `<span class="batch-item-page">第 ${result.page} 页</span>` : ""}
+                    <span class="batch-item-toggle" id="toggle-${contentId}">▼</span>
                 </div>
+                <div class="batch-item-content collapsed" id="${contentId}">
         `;
         
         if (isSuccess && result.result) {
-            detailsHtml += `
-                <div class="batch-item-content">
-                    <button class="view-detail-btn" onclick="viewBatchItemDetail(${index})">
-                        查看详情
-                    </button>
-                    <div class="batch-item-detail" id="detail-${index}" style="display:none;">
-                        <div class="detail-section">
-                            <h4>结构化数据</h4>
-                            <div class="detail-data">${JSON.stringify(result.result.structured_result || result.result, null, 2)}</div>
-                        </div>
-                    </div>
-                </div>
-            `;
+            // 展示完整结果（像单文件一样）
+            const fullResult = result.result;
+            detailsHtml += renderBatchItemDetails(fullResult, index);
         } else if (result.error) {
             detailsHtml += `
-                <div class="batch-item-content">
-                    <div class="error-message">错误: ${result.error}</div>
-                </div>
+                <div class="error-message">错误: ${result.error}</div>
             `;
         }
         
-        detailsHtml += '</div>';
+        detailsHtml += `
+                </div>
+            </div>
+        `;
     });
     
     detailsHtml += '</div>';
     batchDetails.innerHTML = detailsHtml;
     
-    // 存储批量结果数据，供查看详情使用
+    // 存储批量结果数据
     window.batchResultsData = results;
 }
 
-// 查看批量处理项的详情
-window.viewBatchItemDetail = function(index) {
-    const detailDiv = document.getElementById(`detail-${index}`);
-    if (detailDiv) {
-        detailDiv.style.display = detailDiv.style.display === "none" ? "block" : "none";
+function renderBatchItemDetails(fullResult, index) {
+    const structuredResult = fullResult.structured_result || fullResult;
+    const ocrResult = fullResult.ocr_result;
+    const preProcessedImage = fullResult.pre_processed_image;
+    
+    let html = '';
+    
+    // 1. 预处理后的图片
+    if (preProcessedImage) {
+        const normalized = normalizeImageData(preProcessedImage);
+        if (normalized) {
+            html += `
+                <div class="batch-detail-section">
+                    <h4>预处理后的图片</h4>
+                    <div class="batch-image-preview">
+                        <img src="${normalized}" alt="预处理图片" style="max-width: 100%; height: auto; border-radius: 8px;">
+                    </div>
+                </div>
+            `;
+        }
+    }
+    
+    // 2. OCR 识别结果
+    if (ocrResult) {
+        html += `
+            <div class="batch-detail-section">
+                <h4>OCR 识别结果</h4>
+                <pre class="batch-json-viewer">${JSON.stringify(ocrResult, null, 2)}</pre>
+            </div>
+        `;
+    }
+    
+    // 3. 结构化结果
+    if (structuredResult && structuredResult.structured_data) {
+        html += renderStructuredResultForBatch(structuredResult, `batch-${index}`);
+    }
+    
+    return html;
+}
+
+function renderStructuredResultForBatch(structuredData, prefix) {
+    if (!structuredData || !structuredData.structured_data) {
+        return '<div class="batch-detail-section"><p>未返回结构化结果</p></div>';
+    }
+    
+    const fields = structuredData.structured_data.fields || {};
+    const validationList = structuredData.structured_data.validation_list || [];
+    const coverage = structuredData.structured_data.coverage || 0;
+    
+    let html = `
+        <div class="batch-detail-section">
+            <h4>结构化结果</h4>
+            <div class="coverage-info">字段覆盖率: <strong>${coverage.toFixed(2)}%</strong></div>
+            <table class="fields-table">
+                <thead>
+                    <tr>
+                        <th>字段名</th>
+                        <th>字段值</th>
+                        <th>置信度</th>
+                        <th>数据来源</th>
+                        <th>状态</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+    
+    for (const [fieldName, fieldInfo] of Object.entries(fields)) {
+        const confidence = fieldInfo.confidence || 0;
+        const value = fieldInfo.value !== null && fieldInfo.value !== undefined ? String(fieldInfo.value) : "";
+        const source = fieldInfo.source || "unknown";
+        const needsValidation = fieldInfo.needs_validation || false;
+        const statusClass = needsValidation ? "needs-validation" : "valid";
+        const statusText = needsValidation ? "需校验" : "正常";
+        
+        html += `
+            <tr class="${statusClass}">
+                <td><strong>${fieldName}</strong></td>
+                <td>${escapeHtml(value) || "<em>未提取</em>"}</td>
+                <td><span class="confidence ${confidence <= 80 ? 'low' : confidence <= 90 ? 'medium' : 'high'}">${confidence.toFixed(2)}%</span></td>
+                <td>${source}</td>
+                <td>${statusText}</td>
+            </tr>
+        `;
+    }
+    
+    html += `
+                </tbody>
+            </table>
+        </div>
+    `;
+    
+    // 4. 待校验字段清单
+    if (validationList.length > 0) {
+        html += `
+            <div class="batch-detail-section">
+                <h4>待校验字段清单</h4>
+                <ul class="validation-list">
+        `;
+        for (const fieldName of validationList) {
+            const fieldInfo = fields[fieldName] || {};
+            html += `
+                <li>
+                    <strong>${fieldName}</strong>: ${escapeHtml(String(fieldInfo.value || "未提取"))} 
+                    (置信度: ${(fieldInfo.confidence || 0).toFixed(2)}%)
+                </li>
+            `;
+        }
+        html += `
+                </ul>
+            </div>
+        `;
+    } else {
+        html += `
+            <div class="batch-detail-section">
+                <h4>待校验字段清单</h4>
+                <p class="no-validation">所有字段置信度均高于 80%，无需人工校验。</p>
+            </div>
+        `;
+    }
+    
+    return html;
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// 切换批量处理项的展开/折叠
+window.toggleBatchItem = function(contentId) {
+    const contentDiv = document.getElementById(contentId);
+    const toggleIcon = document.getElementById(`toggle-${contentId}`);
+    
+    if (contentDiv) {
+        const isCollapsed = contentDiv.classList.contains("collapsed");
+        if (isCollapsed) {
+            contentDiv.classList.remove("collapsed");
+            if (toggleIcon) toggleIcon.textContent = "▲";
+        } else {
+            contentDiv.classList.add("collapsed");
+            if (toggleIcon) toggleIcon.textContent = "▼";
+        }
     }
 };
 

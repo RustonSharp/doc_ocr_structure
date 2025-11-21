@@ -198,7 +198,7 @@ async def batch_process(files: List[UploadFile] = File(...), save_files: bool = 
                         "filename": file.filename,
                         "page": page_info["page_number"],
                         "status": "success",
-                        "result": page_result["structured_result"],
+                        "result": page_result,  # 返回完整结果，包括预处理图片、OCR结果等
                     })
                     successful += 1
                     
@@ -216,7 +216,7 @@ async def batch_process(files: List[UploadFile] = File(...), save_files: bool = 
                 results.append({
                     "filename": file.filename,
                     "status": "success",
-                    "result": result["structured_result"],
+                    "result": result,  # 返回完整结果，包括预处理图片、OCR结果等
                 })
                 successful += 1
                 

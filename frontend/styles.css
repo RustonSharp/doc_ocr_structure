@@ -369,7 +369,16 @@ code {
     display: flex;
     align-items: center;
     gap: 12px;
-    margin-bottom: 12px;
+    padding: 12px;
+    cursor: pointer;
+    user-select: none;
+    background: #f9fafb;
+    border-radius: 6px;
+    transition: background 0.2s;
+}
+
+.batch-item-header:hover {
+    background: #f3f4f6;
 }
 
 .batch-item-status {
@@ -400,6 +409,62 @@ code {
 }
 
 .batch-item-content {
+    margin-top: 0;
+    padding: 16px;
+    overflow: hidden;
+    transition: max-height 0.3s ease, padding 0.3s ease;
+}
+
+.batch-item-content.collapsed {
+    max-height: 0;
+    padding: 0 16px;
+    overflow: hidden;
+}
+
+.batch-item-toggle {
+    margin-left: auto;
+    font-size: 0.875rem;
+    color: #6b7280;
+    transition: transform 0.3s;
+}
+
+.batch-detail-section {
+    margin-bottom: 24px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.batch-detail-section:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+.batch-detail-section h4 {
+    margin-bottom: 12px;
+    color: #374151;
+    font-size: 1rem;
+}
+
+.batch-image-preview {
+    margin-top: 12px;
+    text-align: center;
+    background: #f9fafb;
+    padding: 12px;
+    border-radius: 8px;
+}
+
+.batch-json-viewer {
+    background: #1f2937;
+    color: #e0e7ff;
+    padding: 12px;
+    border-radius: 6px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.85rem;
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-height: 300px;
+    overflow-y: auto;
     margin-top: 12px;
 }
 
