@@ -13,50 +13,111 @@ const llmResultViewer = document.getElementById("llmResult");
 
 let objectUrl;
 
+const batchModeCheckbox = document.getElementById("batchMode");
+
+// 确保元素存在后再添加事件监听
+if (batchModeCheckbox) {
+    batchModeCheckbox.addEventListener("change", handleBatchModeChange);
+}
+
 fileInput.addEventListener("change", handleFileChange);
 uploadForm.addEventListener("submit", handleFormSubmit);
 
+function handleBatchModeChange(event) {
+    const isBatch = event.target.checked;
+    const fileInputEl = document.getElementById("fileInput");
+    
+    if (!fileInputEl) return;
+    
+    if (isBatch) {
+        fileInputEl.setAttribute("multiple", "multiple");
+        fileLabel.textContent = "点击或拖拽多个图片/PDF到此处（批量处理）";
+    } else {
+        fileInputEl.removeAttribute("multiple");
+        fileLabel.textContent = "点击或拖拽图片/PDF到此处";
+    }
+    
+    // 清空文件选择
+    fileInputEl.value = "";
+    
+    // 重置预览
+    resetPreview();
+}
+
 function handleFileChange(event) {
-    const file = event.target.files?.[0];
-    if (!file) {
+    const files = event.target.files;
+    if (!files || files.length === 0) {
         resetPreview();
         return;
     }
 
-    fileLabel.textContent = `已选择: ${file.name}`;
-
-    // 如果是 PDF 文件，显示提示信息
-    if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
-        if (objectUrl) {
-            URL.revokeObjectURL(objectUrl);
-        }
+    const isBatch = batchModeCheckbox && batchModeCheckbox.checked;
+    
+    if (isBatch) {
+        // 批量模式：显示文件列表
+        const fileList = Array.from(files).map(f => f.name).join(", ");
+        fileLabel.textContent = `已选择 ${files.length} 个文件: ${fileList.substring(0, 100)}${fileList.length > 100 ? "..." : ""}`;
+        
+        // 隐藏单文件预览
         imagePreview.hidden = true;
         const placeholder = previewBox.querySelector(".placeholder");
         if (placeholder) {
-            placeholder.textContent = "PDF 文件将在处理完成后显示转换后的图片";
+            placeholder.textContent = `已选择 ${files.length} 个文件，点击"开始识别"进行批量处理`;
             placeholder.removeAttribute("hidden");
         }
     } else {
-        // 图片文件正常预览
-        if (objectUrl) {
-            URL.revokeObjectURL(objectUrl);
-        }
-        objectUrl = URL.createObjectURL(file);
+        // 单文件模式：显示第一个文件的预览
+        const file = files[0];
+        fileLabel.textContent = `已选择: ${file.name}`;
 
-        imagePreview.src = objectUrl;
-        imagePreview.hidden = false;
-        previewBox.querySelector(".placeholder")?.setAttribute("hidden", "true");
+        // 如果是 PDF 文件，显示提示信息
+        if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
+            if (objectUrl) {
+                URL.revokeObjectURL(objectUrl);
+            }
+            imagePreview.hidden = true;
+            const placeholder = previewBox.querySelector(".placeholder");
+            if (placeholder) {
+                placeholder.textContent = "PDF 文件将在处理完成后显示转换后的图片";
+                placeholder.removeAttribute("hidden");
+            }
+        } else {
+            // 图片文件正常预览
+            if (objectUrl) {
+                URL.revokeObjectURL(objectUrl);
+            }
+            objectUrl = URL.createObjectURL(file);
+
+            imagePreview.src = objectUrl;
+            imagePreview.hidden = false;
+            previewBox.querySelector(".placeholder")?.setAttribute("hidden", "true");
+        }
     }
 }
 
 async function handleFormSubmit(event) {
     event.preventDefault();
 
-    if (!fileInput.files?.length) {
-        setStatus("请先选择一张图片", "error");
+    const files = fileInput.files;
+    if (!files || files.length === 0) {
+        setStatus("请先选择文件", "error");
         return;
     }
 
+    const isBatch = batchModeCheckbox && batchModeCheckbox.checked;
+    
+    console.log("提交表单，批量模式:", isBatch, "文件数量:", files.length); // 调试信息
+    
+    if (isBatch) {
+        // 批量处理
+        await handleBatchProcess();
+    } else {
+        // 单文件处理
+        await handleSingleProcess();
+    }
+}
+
+async function handleSingleProcess() {
     setStatus("正在上传并识别，请稍候...", "info");
     uploadForm.querySelector("button").disabled = true;
 
@@ -116,6 +177,169 @@ async function handleFormSubmit(event) {
         uploadForm.querySelector("button").disabled = false;
     }
 }
+
+async function handleBatchProcess() {
+    const files = fileInput.files;
+    if (!files || files.length === 0) {
+        setStatus("请先选择文件", "error");
+        return;
+    }
+
+    setStatus(`正在批量处理 ${files.length} 个文件，请稍候...`, "info");
+    uploadForm.querySelector("button").disabled = true;
+
+    try {
+        // 检查 API 连接
+        try {
+            const healthCheck = await fetch(`${API_BASE_URL}/health`, { 
+                method: "GET",
+                signal: AbortSignal.timeout(3000)
+            });
+            if (!healthCheck.ok) {
+                throw new Error(`后端服务响应异常 (${healthCheck.status})`);
+            }
+        } catch (healthError) {
+            if (healthError.name === "TimeoutError" || 
+                healthError.message.includes("Failed to fetch") || 
+                healthError.message.includes("NetworkError")) {
+                throw new Error(`无法连接到后端服务 (${API_BASE_URL})\n\n请检查：\n1. 后端服务是否已启动？运行命令：python main.py\n2. 服务地址是否正确？`);
+            }
+            throw healthError;
+        }
+
+        const formData = new FormData();
+        // FastAPI 的批量接口期望参数名为 "files"
+        for (let i = 0; i < files.length; i++) {
+            formData.append("files", files[i]);
+        }
+        
+        console.log("准备上传文件，数量:", files.length); // 调试信息
+
+        const response = await fetch(`${API_BASE_URL}/batch`, {
+            method: "POST",
+            body: formData,
+        });
+
+        if (!response.ok) {
+            const text = await response.text();
+            let errorMsg = `请求失败 (${response.status})`;
+            try {
+                const errorJson = JSON.parse(text);
+                errorMsg = errorJson.detail || errorJson.message || errorMsg;
+            } catch {
+                errorMsg = text || errorMsg;
+            }
+            throw new Error(errorMsg);
+        }
+
+        const data = await response.json();
+        renderBatchResults(data);
+        setStatus(`批量处理完成：成功 ${data.successful} 个，失败 ${data.failed} 个`, "success");
+    } catch (error) {
+        console.error("批量处理错误：", error);
+        let errorMessage = error.message;
+        
+        if (error.message.includes("Failed to fetch") || error.message.includes("NetworkError")) {
+            errorMessage = `无法连接到后端服务 (${API_BASE_URL})\n\n请检查：\n1. 后端服务是否已启动？运行命令：python main.py\n2. 服务地址是否正确？`;
+        }
+        
+        setStatus(errorMessage, "error");
+    } finally {
+        uploadForm.querySelector("button").disabled = false;
+    }
+}
+
+function renderBatchResults(data) {
+    const batchBlock = document.getElementById("batchResultsBlock");
+    const batchSummary = document.getElementById("batchSummary");
+    const batchDetails = document.getElementById("batchDetails");
+    
+    batchBlock.style.display = "block";
+    
+    // 显示统计信息
+    const total = data.total_files || 0;
+    const successful = data.successful || 0;
+    const failed = data.failed || 0;
+    const successRate = total > 0 ? ((successful / total) * 100).toFixed(1) : 0;
+    
+    batchSummary.innerHTML = `
+        <div class="batch-stats">
+            <div class="stat-item">
+                <span class="stat-label">总文件数:</span>
+                <span class="stat-value">${total}</span>
+            </div>
+            <div class="stat-item success">
+                <span class="stat-label">成功:</span>
+                <span class="stat-value">${successful}</span>
+            </div>
+            <div class="stat-item error">
+                <span class="stat-label">失败:</span>
+                <span class="stat-value">${failed}</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">成功率:</span>
+                <span class="stat-value">${successRate}%</span>
+            </div>
+        </div>
+    `;
+    
+    // 显示详细信息
+    let detailsHtml = '<div class="batch-details-list">';
+    const results = data.results || [];
+    
+    results.forEach((result, index) => {
+        const isSuccess = result.status === "success";
+        const statusClass = isSuccess ? "success" : "error";
+        const statusIcon = isSuccess ? "✓" : "✗";
+        
+        detailsHtml += `
+            <div class="batch-item ${statusClass}">
+                <div class="batch-item-header">
+                    <span class="batch-item-status">${statusIcon}</span>
+                    <span class="batch-item-name">${result.filename || `文件 ${index + 1}`}</span>
+                    ${result.page ? `<span class="batch-item-page">第 ${result.page} 页</span>` : ""}
+                </div>
+        `;
+        
+        if (isSuccess && result.result) {
+            detailsHtml += `
+                <div class="batch-item-content">
+                    <button class="view-detail-btn" onclick="viewBatchItemDetail(${index})">
+                        查看详情
+                    </button>
+                    <div class="batch-item-detail" id="detail-${index}" style="display:none;">
+                        <div class="detail-section">
+                            <h4>结构化数据</h4>
+                            <div class="detail-data">${JSON.stringify(result.result.structured_result || result.result, null, 2)}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else if (result.error) {
+            detailsHtml += `
+                <div class="batch-item-content">
+                    <div class="error-message">错误: ${result.error}</div>
+                </div>
+            `;
+        }
+        
+        detailsHtml += '</div>';
+    });
+    
+    detailsHtml += '</div>';
+    batchDetails.innerHTML = detailsHtml;
+    
+    // 存储批量结果数据，供查看详情使用
+    window.batchResultsData = results;
+}
+
+// 查看批量处理项的详情
+window.viewBatchItemDetail = function(index) {
+    const detailDiv = document.getElementById(`detail-${index}`);
+    if (detailDiv) {
+        detailDiv.style.display = detailDiv.style.display === "none" ? "block" : "none";
+    }
+};
 
 let currentStructuredData = null;
 let pdfResults = null; // 存储 PDF 多页结果

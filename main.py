@@ -186,8 +186,8 @@ async def batch_process(files: List[UploadFile] = File(...), save_files: bool = 
             file_ext = Path(file.filename).suffix.lower() if file.filename else ""
             
             if is_pdf(file_data) or file_ext == ".pdf":
-                # PDF 处理
-                pdf_pages = process_pdf(file_data)
+                # PDF 处理（使用300 DPI以提高识别质量）
+                pdf_pages = process_pdf(file_data, dpi=300)
                 for page_info in pdf_pages:
                     page_result = await process_single_image(
                         page_info["image_bytes"],
