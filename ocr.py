@@ -211,6 +211,11 @@ class OCREngineManager:
         avg_confidence = self._compute_google_confidence(doc_response)
         language = self._collect_google_languages(doc_response)
 
+        # 应用后处理校正（如果启用）
+        enable_post_process = engine_config.get("enable_post_process", True)
+        if enable_post_process:
+            full_text = self._apply_post_process(full_text, engine_config)
+
         return {
             "text": full_text.strip(),
             "confidence": avg_confidence,
@@ -333,6 +338,43 @@ class OCREngineManager:
             return OCREngineType(engine_name)
         except ValueError as exc:
             raise ValueError(f"未知的 OCR 引擎类型: {engine_name}") from exc
+
+    def _apply_post_process(self, text: str, engine_config: Dict[str, Any]) -> str:
+        """
+        应用后处理校正（用于不支持自定义字典的引擎，如 Google Cloud Vision）
+        
+        Args:
+            text: 原始 OCR 识别文本
+            engine_config: 引擎配置
+        
+        Returns:
+            校正后的文本
+        """
+        try:
+            from ocr_post_process import create_post_processor
+            
+            # 检查是否启用后处理
+            enable_post_process = engine_config.get("enable_post_process", True)
+            if not enable_post_process:
+                return text
+            
+            # 获取自定义词汇表路径
+            custom_words_path = engine_config.get("custom_words_path")
+            if not custom_words_path:
+                # 尝试从 pytesseract 配置中获取
+                pytesseract_config = self.engine_configs.get(OCREngineType.PYTESSERACT.value, {})
+                custom_words_path = pytesseract_config.get("custom_words_path")
+            
+            if custom_words_path:
+                custom_words_path = self._resolve_path(custom_words_path)
+                if custom_words_path and os.path.exists(custom_words_path):
+                    processor = create_post_processor(custom_words_path)
+                    return processor.correct_text(text, use_fuzzy_match=True)
+        except Exception as e:
+            # 后处理失败不影响主流程
+            print(f"后处理校正失败: {e}")
+        
+        return text
 
 
 if __name__ == "__main__":

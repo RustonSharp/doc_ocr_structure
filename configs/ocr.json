@@ -19,7 +19,9 @@
                     "en"
                 ],
                 "enable_text_detection": true,
-                "credentials_path": "credentials/google_vision.json"
+                "credentials_path": "credentials/google_vision.json",
+                "enable_post_process": true,
+                "custom_words_path": "configs/ocr/custom_words.txt"
             }
         }
     }

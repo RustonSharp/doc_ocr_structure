@@ -143,7 +143,7 @@ class LLMService:
             f"文档类型: {structure_config.get('title', '未知')}\n"
             f"文档描述: {structure_config.get('description', '')}\n\n"
             f"需要提取的字段：\n{fields_text}\n\n"
-            f"OCR识别文本：\n```\n{ocr_text}\n```\n"
+            f"OCR识别文本（可能包含识别错误、乱码或格式混乱，请尽力理解并提取）：\n```\n{ocr_text}\n```\n"
             f"{position_context}\n"
             f"请严格按照字段定义提取数据，输出一个JSON对象，格式如下：\n"
             f"{{"
@@ -167,7 +167,9 @@ class LLMService:
             "2. 如果某个字段在文本中找不到，根据字段类型设置为null或空字符串\n"
             "3. 日期字段请转换为标准格式（YYYY-MM-DD）\n"
             "4. 数字字段请提取纯数字，去除货币符号等\n"
-            "5. 确保输出的JSON是有效的"
+            "5. 对于识别错误的文本，尝试通过上下文和模式匹配来推断正确值\n"
+            "6. 如果文本混乱，尝试查找关键词附近的数值或文本\n"
+            "7. 确保输出的JSON是有效的"
         )
         
         result_text = self.generate_text(prompt)

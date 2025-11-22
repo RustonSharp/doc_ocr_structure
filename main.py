@@ -86,7 +86,8 @@ async def process_single_image(
         if pre_processed_image is None:
             raise HTTPException(status_code=400, detail="预处理失败")
         processed_bytes, processed_preview = _image_to_bytes_and_data_url(pre_processed_image)
-        input_bytes = image_data  # Google Vision 使用原始图片
+        # Google Vision 也使用预处理后的图片（倾斜校正后的），以提高识别准确率
+        input_bytes = processed_bytes
     
     # OCR 识别
     ocr_result = await ocr_engine.process_image_with_current_engine(input_bytes)
