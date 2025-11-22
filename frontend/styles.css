@@ -10,6 +10,38 @@ body {
     background: #f5f7fb;
     color: #1f2937;
     padding: 24px;
+    position: relative;
+}
+
+/* 语言切换按钮 */
+.language-switcher {
+    position: fixed;
+    top: 24px;
+    right: 24px;
+    z-index: 1000;
+}
+
+.lang-btn {
+    background: #fff;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #1f2937;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.lang-btn:hover {
+    background: #f9fafb;
+    border-color: #3b82f6;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+}
+
+.lang-btn:active {
+    transform: scale(0.98);
 }
 
 .container {

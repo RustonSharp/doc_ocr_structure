@@ -10,10 +10,35 @@ const processedPreview = document.getElementById("processedPreview");
 const processedPlaceholder = document.getElementById("processedPlaceholder");
 const ocrResultViewer = document.getElementById("ocrResult");
 const llmResultViewer = document.getElementById("llmResult");
+const langText = document.getElementById("langText");
 
 let objectUrl;
 
 const batchModeCheckbox = document.getElementById("batchMode");
+
+// 语言切换函数
+function toggleLanguage() {
+    const newLang = currentLang === 'zh' ? 'en' : 'zh';
+    setLanguage(newLang);
+    if (langText) {
+        langText.textContent = newLang === 'zh' ? '中文' : 'English';
+    }
+}
+
+// 监听语言变化事件
+window.addEventListener('languageChanged', () => {
+    // 更新动态文本
+    updateDynamicTexts();
+});
+
+// 更新动态文本
+function updateDynamicTexts() {
+    if (batchModeCheckbox && batchModeCheckbox.checked) {
+        fileLabel.textContent = t('fileLabelBatch');
+    } else {
+        fileLabel.textContent = t('fileLabel');
+    }
+}
 
 // 确保元素存在后再添加事件监听
 if (batchModeCheckbox) {
@@ -23,6 +48,11 @@ if (batchModeCheckbox) {
 fileInput.addEventListener("change", handleFileChange);
 uploadForm.addEventListener("submit", handleFormSubmit);
 
+// 初始化语言按钮文本
+if (langText) {
+    langText.textContent = currentLang === 'zh' ? '中文' : 'English';
+}
+
 function handleBatchModeChange(event) {
     const isBatch = event.target.checked;
     const fileInputEl = document.getElementById("fileInput");
@@ -31,10 +61,10 @@ function handleBatchModeChange(event) {
     
     if (isBatch) {
         fileInputEl.setAttribute("multiple", "multiple");
-        fileLabel.textContent = "点击或拖拽多个图片/PDF到此处（批量处理）";
+        fileLabel.textContent = t('fileLabelBatch');
     } else {
         fileInputEl.removeAttribute("multiple");
-        fileLabel.textContent = "点击或拖拽图片/PDF到此处";
+        fileLabel.textContent = t('fileLabel');
     }
     
     // 清空文件选择
@@ -56,19 +86,22 @@ function handleFileChange(event) {
     if (isBatch) {
         // 批量模式：显示文件列表
         const fileList = Array.from(files).map(f => f.name).join(", ");
-        fileLabel.textContent = `已选择 ${files.length} 个文件: ${fileList.substring(0, 100)}${fileList.length > 100 ? "..." : ""}`;
+        fileLabel.textContent = t('fileSelectedBatch', {
+            count: files.length,
+            list: fileList.substring(0, 100) + (fileList.length > 100 ? "..." : "")
+        });
         
         // 隐藏单文件预览
         imagePreview.hidden = true;
         const placeholder = previewBox.querySelector(".placeholder");
         if (placeholder) {
-            placeholder.textContent = `已选择 ${files.length} 个文件，点击"开始识别"进行批量处理`;
+            placeholder.textContent = t('fileSelectedBatchPlaceholder', { count: files.length });
             placeholder.removeAttribute("hidden");
         }
     } else {
         // 单文件模式：显示第一个文件的预览
         const file = files[0];
-        fileLabel.textContent = `已选择: ${file.name}`;
+        fileLabel.textContent = t('fileSelected', { name: file.name });
 
         // 如果是 PDF 文件，显示提示信息
         if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
@@ -78,7 +111,7 @@ function handleFileChange(event) {
             imagePreview.hidden = true;
             const placeholder = previewBox.querySelector(".placeholder");
             if (placeholder) {
-                placeholder.textContent = "PDF 文件将在处理完成后显示转换后的图片";
+                placeholder.textContent = t('pdfPreview');
                 placeholder.removeAttribute("hidden");
             }
         } else {
@@ -100,7 +133,7 @@ async function handleFormSubmit(event) {
 
     const files = fileInput.files;
     if (!files || files.length === 0) {
-        setStatus("请先选择文件", "error");
+        setStatus(t('pleaseSelectFile'), "error");
         return;
     }
 
@@ -118,7 +151,7 @@ async function handleFormSubmit(event) {
 }
 
 async function handleSingleProcess() {
-    setStatus("正在上传并识别，请稍候...", "info");
+    setStatus(t('uploading'), "info");
     uploadForm.querySelector("button").disabled = true;
 
     try {
@@ -132,13 +165,13 @@ async function handleSingleProcess() {
                 signal: AbortSignal.timeout(3000) // 3秒超时
             });
             if (!healthCheck.ok) {
-                throw new Error(`后端服务响应异常 (${healthCheck.status})`);
+                throw new Error(t('backendError', { status: healthCheck.status }));
             }
         } catch (healthError) {
             if (healthError.name === "TimeoutError" || 
                 healthError.message.includes("Failed to fetch") || 
                 healthError.message.includes("NetworkError")) {
-                throw new Error(`无法连接到后端服务 (${API_BASE_URL})\n\n请检查：\n1. 后端服务是否已启动？运行命令：python main.py\n2. 服务地址是否正确？\n3. 如果直接打开 HTML 文件，请使用 HTTP 服务器访问\n\n提示：可以使用 start.bat (Windows) 或 start.sh (Linux/Mac) 一键启动服务`);
+                throw new Error(t('connectionError', { url: API_BASE_URL }));
             }
             throw healthError;
         }
@@ -150,7 +183,7 @@ async function handleSingleProcess() {
 
         if (!response.ok) {
             const text = await response.text();
-            let errorMsg = `请求失败 (${response.status})`;
+            let errorMsg = t('requestFailed', { status: response.status });
             try {
                 const errorJson = JSON.parse(text);
                 errorMsg = errorJson.detail || errorJson.message || errorMsg;
@@ -161,15 +194,28 @@ async function handleSingleProcess() {
         }
 
         const data = await response.json();
+        
+        // 保存文件信息（用于重新生成输出文件）
+        const fileName = fileInput.files[0]?.name || "image";
+        const baseName = fileName.replace(/\.[^/.]+$/, ""); // 移除扩展名
+        currentFileInfo = {
+            filename: fileName,
+            base_name: baseName,
+            output_dir: `output/${baseName}`,
+            ocr_result: data.result?.ocr_result || data?.ocr_result,
+            is_pdf: false,
+            page_number: null
+        };
+        
         renderResults(data);
-        setStatus("识别完成", "success");
+        setStatus(t('completed'), "success");
     } catch (error) {
         console.error("详细错误信息：", error);
         let errorMessage = error.message;
         
         // 提供更友好的错误提示
         if (error.message.includes("Failed to fetch") || error.message.includes("NetworkError")) {
-            errorMessage = `无法连接到后端服务 (${API_BASE_URL})\n\n请检查：\n1. 后端服务是否已启动？运行命令：python main.py\n2. 服务地址是否正确？\n3. 如果直接打开 HTML 文件，请使用 HTTP 服务器访问`;
+            errorMessage = t('connectionErrorShort', { url: API_BASE_URL });
         }
         
         setStatus(errorMessage, "error");
@@ -181,11 +227,11 @@ async function handleSingleProcess() {
 async function handleBatchProcess() {
     const files = fileInput.files;
     if (!files || files.length === 0) {
-        setStatus("请先选择文件", "error");
+        setStatus(t('pleaseSelectFile'), "error");
         return;
     }
 
-    setStatus(`正在批量处理 ${files.length} 个文件，请稍候...`, "info");
+    setStatus(t('processing', { count: files.length }), "info");
     uploadForm.querySelector("button").disabled = true;
 
     try {
@@ -196,13 +242,13 @@ async function handleBatchProcess() {
                 signal: AbortSignal.timeout(3000)
             });
             if (!healthCheck.ok) {
-                throw new Error(`后端服务响应异常 (${healthCheck.status})`);
+                throw new Error(t('backendError', { status: healthCheck.status }));
             }
         } catch (healthError) {
             if (healthError.name === "TimeoutError" || 
                 healthError.message.includes("Failed to fetch") || 
                 healthError.message.includes("NetworkError")) {
-                throw new Error(`无法连接到后端服务 (${API_BASE_URL})\n\n请检查：\n1. 后端服务是否已启动？运行命令：python main.py\n2. 服务地址是否正确？`);
+                throw new Error(t('connectionErrorShort', { url: API_BASE_URL }));
             }
             throw healthError;
         }
@@ -222,7 +268,7 @@ async function handleBatchProcess() {
 
         if (!response.ok) {
             const text = await response.text();
-            let errorMsg = `请求失败 (${response.status})`;
+            let errorMsg = t('requestFailed', { status: response.status });
             try {
                 const errorJson = JSON.parse(text);
                 errorMsg = errorJson.detail || errorJson.message || errorMsg;
@@ -234,13 +280,13 @@ async function handleBatchProcess() {
 
         const data = await response.json();
         renderBatchResults(data);
-        setStatus(`批量处理完成：成功 ${data.successful} 个，失败 ${data.failed} 个`, "success");
+        setStatus(t('batchCompleted', { successful: data.successful, failed: data.failed }), "success");
     } catch (error) {
         console.error("批量处理错误：", error);
         let errorMessage = error.message;
         
         if (error.message.includes("Failed to fetch") || error.message.includes("NetworkError")) {
-            errorMessage = `无法连接到后端服务 (${API_BASE_URL})\n\n请检查：\n1. 后端服务是否已启动？运行命令：python main.py\n2. 服务地址是否正确？`;
+            errorMessage = t('connectionErrorShort', { url: API_BASE_URL });
         }
         
         setStatus(errorMessage, "error");
@@ -265,19 +311,19 @@ function renderBatchResults(data) {
     batchSummary.innerHTML = `
         <div class="batch-stats">
             <div class="stat-item">
-                <span class="stat-label">总文件数:</span>
+                <span class="stat-label">${t('totalFiles')}</span>
                 <span class="stat-value">${total}</span>
             </div>
             <div class="stat-item success">
-                <span class="stat-label">成功:</span>
+                <span class="stat-label">${t('success')}</span>
                 <span class="stat-value">${successful}</span>
             </div>
             <div class="stat-item error">
-                <span class="stat-label">失败:</span>
+                <span class="stat-label">${t('failed')}</span>
                 <span class="stat-value">${failed}</span>
             </div>
             <div class="stat-item">
-                <span class="stat-label">成功率:</span>
+                <span class="stat-label">${t('successRate')}</span>
                 <span class="stat-value">${successRate}%</span>
             </div>
         </div>
@@ -299,7 +345,7 @@ function renderBatchResults(data) {
                 <div class="batch-item-header" onclick="toggleBatchItem('${contentId}')">
                     <span class="batch-item-status">${statusIcon}</span>
                     <span class="batch-item-name">${result.filename || `文件 ${index + 1}`}</span>
-                    ${result.page ? `<span class="batch-item-page">第 ${result.page} 页</span>` : ""}
+                    ${result.page ? `<span class="batch-item-page">${t('pageNumber', { num: result.page })}</span>` : ""}
                     <span class="batch-item-toggle" id="toggle-${contentId}">▼</span>
                 </div>
                 <div class="batch-item-content collapsed" id="${contentId}">
@@ -370,7 +416,7 @@ function renderBatchItemDetails(fullResult, index) {
 
 function renderStructuredResultForBatch(structuredData, prefix) {
     if (!structuredData || !structuredData.structured_data) {
-        return '<div class="batch-detail-section"><p>未返回结构化结果</p></div>';
+        return `<div class="batch-detail-section"><p>${t('noResult')}</p></div>`;
     }
     
     const fields = structuredData.structured_data.fields || {};
@@ -477,6 +523,7 @@ window.toggleBatchItem = function(contentId) {
 let currentStructuredData = null;
 let pdfResults = null; // 存储 PDF 多页结果
 let currentPageIndex = 0; // 当前显示的页面索引
+let currentFileInfo = null; // 存储当前处理的文件信息（用于重新生成输出文件）
 
 function renderResults(data) {
     console.log("收到数据:", data); // 调试信息
@@ -486,6 +533,18 @@ function renderResults(data) {
         console.log("检测到 PDF 文件，总页数:", data.total_pages); // 调试信息
         pdfResults = data.results;
         currentPageIndex = 0;
+        
+        // 保存文件信息（用于重新生成输出文件）
+        const fileName = fileInput.files[0]?.name || "pdf";
+        const baseName = fileName.replace(/\.[^/.]+$/, ""); // 移除扩展名
+        currentFileInfo = {
+            filename: fileName,
+            base_name: baseName,
+            output_dir: `output/${baseName}_page_1`,
+            ocr_result: data.results[0]?.ocr_result,
+            is_pdf: true,
+            page_number: 1
+        };
         
         // 显示页面选择器
         renderPdfPageSelector(data.total_pages);
@@ -498,8 +557,20 @@ function renderResults(data) {
         const selector = document.getElementById("pdfPageSelector");
         if (selector) selector.style.display = "none";
         
+        // 保存文件信息（用于重新生成输出文件）
+        const fileName = fileInput.files[0]?.name || "image";
+        const baseName = fileName.replace(/\.[^/.]+$/, ""); // 移除扩展名
+        currentFileInfo = {
+            filename: fileName,
+            base_name: baseName,
+            output_dir: `output/${baseName}`,
+            ocr_result: data.result?.ocr_result,
+            is_pdf: false,
+            page_number: null
+        };
+        
         renderProcessedPreview(data.result?.pre_processed_image);
-        renderJsonView(ocrResultViewer, data.result?.ocr_result, "未返回 OCR 结果");
+        renderJsonView(ocrResultViewer, data.result?.ocr_result, t('noResult'));
         renderStructuredResult(data.result?.structured_result);
         currentStructuredData = data.result?.structured_result;
     } else {
@@ -508,8 +579,20 @@ function renderResults(data) {
         const selector = document.getElementById("pdfPageSelector");
         if (selector) selector.style.display = "none";
         
+        // 保存文件信息（用于重新生成输出文件）
+        const fileName = fileInput.files[0]?.name || "image";
+        const baseName = fileName.replace(/\.[^/.]+$/, ""); // 移除扩展名
+        currentFileInfo = {
+            filename: fileName,
+            base_name: baseName,
+            output_dir: `output/${baseName}`,
+            ocr_result: data?.ocr_result,
+            is_pdf: false,
+            page_number: null
+        };
+        
         renderProcessedPreview(data?.pre_processed_image);
-        renderJsonView(ocrResultViewer, data?.ocr_result, "未返回 OCR 结果");
+        renderJsonView(ocrResultViewer, data?.ocr_result, t('noResult'));
         renderStructuredResult(data?.structured_result || data?.structured_ocr_result);
         currentStructuredData = data?.structured_result || data?.structured_ocr_result;
     }
@@ -535,12 +618,12 @@ function renderPdfPageSelector(totalPages) {
         for (let i = 1; i <= totalPages; i++) {
             const option = document.createElement("option");
             option.value = i - 1;
-            option.textContent = `第 ${i} 页`;
+            option.textContent = t('pageNumber', { num: i });
             pageSelect.appendChild(option);
         }
         
         pageSelect.value = 0;
-        pageInfo.textContent = `共 ${totalPages} 页`;
+        pageInfo.textContent = t('pageInfo', { count: totalPages });
         
         // 添加页面切换事件
         pageSelect.onchange = function() {
@@ -550,7 +633,7 @@ function renderPdfPageSelector(totalPages) {
     } else {
         // 单页 PDF：只显示页面信息，隐藏选择器
         pageSelect.style.display = "none";
-        pageInfo.textContent = `共 ${totalPages} 页`;
+        pageInfo.textContent = t('pageInfo', { count: totalPages });
     }
 }
 
@@ -571,9 +654,19 @@ function renderPdfPage(pageIndex) {
         pageSelect.value = pageIndex;
     }
     
+    // 更新文件信息（用于重新生成输出文件）
+    if (currentFileInfo && currentFileInfo.is_pdf) {
+        const pageNumber = pageResult?.page_number || (pageIndex + 1);
+        const baseName = currentFileInfo.filename.replace(/\.[^/.]+$/, ""); // 移除扩展名
+        currentFileInfo.page_number = pageNumber;
+        currentFileInfo.base_name = `${baseName}_page_${pageNumber}`;
+        currentFileInfo.output_dir = `output/${currentFileInfo.base_name}`;
+        currentFileInfo.ocr_result = pageResult?.ocr_result;
+    }
+    
     // 显示该页的图片和数据
     renderProcessedPreview(pageResult?.pre_processed_image);
-    renderJsonView(ocrResultViewer, pageResult?.ocr_result, "未返回 OCR 结果");
+    renderJsonView(ocrResultViewer, pageResult?.ocr_result, t('noResult'));
     renderStructuredResult(pageResult?.structured_result);
     currentStructuredData = pageResult?.structured_result;
 }
@@ -585,8 +678,8 @@ function renderStructuredResult(structuredData) {
     const regenerateBtn = document.getElementById("regenerateBtn");
     
     if (!structuredData || !structuredData.structured_data) {
-        container.textContent = "未返回结构化结果";
-        validationContainer.textContent = "无校验清单";
+        container.textContent = t('noResult');
+        validationContainer.textContent = t('noValidation');
         return;
     }
     
@@ -595,8 +688,8 @@ function renderStructuredResult(structuredData) {
     const coverage = structuredData.structured_data.coverage || 0;
     
     // 渲染结构化数据（带置信度）
-    let html = `<div class="coverage-info">字段覆盖率: <strong>${coverage.toFixed(2)}%</strong></div>`;
-    html += '<table class="fields-table"><thead><tr><th>字段名</th><th>字段值</th><th>置信度</th><th>数据来源</th><th>状态</th></tr></thead><tbody>';
+    let html = `<div class="coverage-info">${t('coverage', { rate: coverage.toFixed(2) })}</div>`;
+    html += `<table class="fields-table"><thead><tr><th>${t('fieldName')}</th><th>${t('fieldValue')}</th><th>${t('confidence')}</th><th>${t('dataSource')}</th><th>${t('status')}</th></tr></thead><tbody>`;
     
     for (const [fieldName, fieldInfo] of Object.entries(fields)) {
         const confidence = fieldInfo.confidence || 0;
@@ -604,11 +697,11 @@ function renderStructuredResult(structuredData) {
         const source = fieldInfo.source || "unknown";
         const needsValidation = fieldInfo.needs_validation || false;
         const statusClass = needsValidation ? "needs-validation" : "valid";
-        const statusText = needsValidation ? "需校验" : "正常";
+        const statusText = needsValidation ? t('needsValidation') : t('normal');
         
         html += `<tr class="${statusClass}">
             <td><strong>${fieldName}</strong></td>
-            <td>${value || "<em>未提取</em>"}</td>
+            <td>${value || `<em>${t('notExtracted')}</em>`}</td>
             <td><span class="confidence ${confidence <= 80 ? 'low' : confidence <= 90 ? 'medium' : 'high'}">${confidence.toFixed(2)}%</span></td>
             <td>${source}</td>
             <td>${statusText}</td>
@@ -624,24 +717,24 @@ function renderStructuredResult(structuredData) {
         for (const fieldName of validationList) {
             const fieldInfo = fields[fieldName] || {};
             validationHtml += `<li>
-                <strong>${fieldName}</strong>: ${fieldInfo.value || "<em>未提取</em>"} 
-                (置信度: ${(fieldInfo.confidence || 0).toFixed(2)}%)
+                <strong>${fieldName}</strong>: ${fieldInfo.value || `<em>${t('notExtracted')}</em>`} 
+                (${t('confidence')}: ${(fieldInfo.confidence || 0).toFixed(2)}%)
             </li>`;
         }
         validationHtml += '</ul>';
         validationContainer.innerHTML = validationHtml;
     } else {
-        validationContainer.innerHTML = '<p class="no-validation">所有字段置信度均高于 80%，无需人工校验。</p>';
+        validationContainer.innerHTML = `<p class="no-validation">${t('allFieldsValid')}</p>`;
     }
     
     // 渲染可编辑字段
-    let editorHtml = '<table class="editor-table"><thead><tr><th>字段名</th><th>当前值</th><th>修正值</th></tr></thead><tbody>';
+    let editorHtml = `<table class="editor-table"><thead><tr><th>${t('fieldName')}</th><th>${t('currentValue')}</th><th>${t('correctionValue')}</th></tr></thead><tbody>`;
     for (const [fieldName, fieldInfo] of Object.entries(fields)) {
         const currentValue = fieldInfo.value !== null && fieldInfo.value !== undefined ? String(fieldInfo.value) : "";
         editorHtml += `<tr>
             <td><strong>${fieldName}</strong></td>
-            <td>${currentValue || "<em>未提取</em>"}</td>
-            <td><input type="text" data-field="${fieldName}" value="${currentValue}" placeholder="输入修正值"></td>
+            <td>${currentValue || `<em>${t('notExtracted')}</em>`}</td>
+            <td><input type="text" data-field="${fieldName}" value="${currentValue}" placeholder="${t('inputCorrection')}"></td>
         </tr>`;
     }
     editorHtml += '</tbody></table>';
@@ -651,7 +744,15 @@ function renderStructuredResult(structuredData) {
 
 // 重新生成结构化结果
 document.getElementById("regenerateBtn")?.addEventListener("click", async function() {
-    if (!currentStructuredData) return;
+    if (!currentStructuredData) {
+        setStatus(t('noStructuredData'), "error");
+        return;
+    }
+    
+    if (!currentFileInfo) {
+        setStatus(t('noFileInfo'), "error");
+        return;
+    }
     
     const inputs = document.querySelectorAll("#editableFields input[data-field]");
     const corrections = {};
@@ -664,32 +765,79 @@ document.getElementById("regenerateBtn")?.addEventListener("click", async functi
     });
     
     if (Object.keys(corrections).length === 0) {
-        setStatus("没有需要修正的字段", "info");
+        setStatus(t('noCorrections'), "info");
         return;
     }
     
-    setStatus("正在重新生成...", "info");
+    setStatus(t('regenerating'), "info");
+    const regenerateBtn = document.getElementById("regenerateBtn");
+    if (regenerateBtn) regenerateBtn.disabled = true;
     
-    // 应用修正
-    const updatedData = JSON.parse(JSON.stringify(currentStructuredData));
-    for (const [fieldName, correctedValue] of Object.entries(corrections)) {
-        if (updatedData.structured_data.fields[fieldName]) {
-            updatedData.structured_data.fields[fieldName].value = correctedValue;
-            updatedData.structured_data.fields[fieldName].confidence = 100.0; // 人工修正后置信度为 100%
-            updatedData.structured_data.fields[fieldName].source = "manual";
-            updatedData.structured_data.fields[fieldName].needs_validation = false;
+    try {
+        // 应用修正
+        const updatedData = JSON.parse(JSON.stringify(currentStructuredData));
+        for (const [fieldName, correctedValue] of Object.entries(corrections)) {
+            if (updatedData.structured_data.fields[fieldName]) {
+                updatedData.structured_data.fields[fieldName].value = correctedValue;
+                updatedData.structured_data.fields[fieldName].confidence = 100.0; // 人工修正后置信度为 100%
+                updatedData.structured_data.fields[fieldName].source = "manual";
+                updatedData.structured_data.fields[fieldName].needs_validation = false;
+            }
         }
+        
+        // 更新校验清单
+        updatedData.structured_data.validation_list = Object.entries(updatedData.structured_data.fields)
+            .filter(([_, info]) => info.needs_validation)
+            .map(([name, _]) => name);
+        
+        // 调用后端API重新生成输出文件
+        const response = await fetch(`${API_BASE_URL}/regenerate`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                structured_result: updatedData,
+                output_dir: currentFileInfo.output_dir,
+                base_name: currentFileInfo.base_name,
+                ocr_result: currentFileInfo.ocr_result,
+            }),
+        });
+        
+        if (!response.ok) {
+            let errorMsg = t('regenerateFailed');
+            try {
+                const errorText = await response.text();
+                if (errorText) {
+                    try {
+                        const errorJson = JSON.parse(errorText);
+                        errorMsg = errorJson.detail || errorJson.message || errorMsg;
+                    } catch {
+                        // 如果不是JSON，直接使用文本
+                        errorMsg = errorText;
+                    }
+                }
+            } catch (e) {
+                console.error("解析错误响应失败:", e);
+                errorMsg = t('regenerateFailed') + ` (${response.status})`;
+            }
+            throw new Error(errorMsg);
+        }
+        
+        const result = await response.json();
+        console.log("重新生成成功:", result);
+        
+        // 重新渲染
+        renderStructuredResult(updatedData);
+        currentStructuredData = updatedData;
+        setStatus(t('regenerateSuccess'), "success");
+    } catch (error) {
+        console.error("重新生成失败:", error);
+        setStatus(t('regenerateFailed') + ": " + error.message, "error");
+    } finally {
+        const regenerateBtn = document.getElementById("regenerateBtn");
+        if (regenerateBtn) regenerateBtn.disabled = false;
     }
-    
-    // 更新校验清单
-    updatedData.structured_data.validation_list = Object.entries(updatedData.structured_data.fields)
-        .filter(([_, info]) => info.needs_validation)
-        .map(([name, _]) => name);
-    
-    // 重新渲染
-    renderStructuredResult(updatedData);
-    currentStructuredData = updatedData;
-    setStatus("修正已应用", "success");
 });
 
 function renderProcessedPreview(imageData) {
@@ -697,12 +845,12 @@ function renderProcessedPreview(imageData) {
     if (normalized) {
         processedPreview.src = normalized;
         processedPreview.hidden = false;
-        processedPlaceholder.textContent = "";
+        processedPlaceholder.textContent = t('waiting');
         processedPlaceholder.hidden = true;
     } else {
         processedPreview.hidden = true;
         processedPlaceholder.hidden = false;
-        processedPlaceholder.textContent = "等待接口返回...";
+        processedPlaceholder.textContent = t('waiting');
     }
 }
 
@@ -743,11 +891,11 @@ function setStatus(message, type) {
 }
 
 function resetPreview() {
-    fileLabel.textContent = "点击或拖拽图片/PDF到此处";
+    fileLabel.textContent = t('fileLabel');
     imagePreview.hidden = true;
     const placeholder = previewBox.querySelector(".placeholder");
     if (placeholder) {
-        placeholder.textContent = "选择文件后会显示预览";
+        placeholder.textContent = t('previewPlaceholder');
         placeholder.removeAttribute("hidden");
     }
     if (objectUrl) {

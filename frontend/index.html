@@ -4,89 +4,96 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>文档 OCR 测试台</title>
+    <title data-i18n="title">文档 OCR 测试台</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+    <!-- 语言切换按钮 -->
+    <div class="language-switcher">
+        <button id="langBtn" class="lang-btn" onclick="toggleLanguage()">
+            <span id="langText">中文</span>
+        </button>
+    </div>
+    
     <main class="container">
         <section class="panel upload-panel">
             <div class="panel-header">
-                <h1>文档 OCR 测试台</h1>
-                <p>上传一张发票/文档图片，调用后端 <code>/ocr</code> 接口完成识别及结构化。</p>
+                <h1 data-i18n="title">文档 OCR 测试台</h1>
+                <p data-i18n-html="description">上传一张发票/文档图片，调用后端 <code>/ocr</code> 接口完成识别及结构化。</p>
             </div>
 
             <form id="uploadForm" class="upload-form">
                 <div style="margin-bottom: 12px;">
                     <label>
                         <input type="checkbox" id="batchMode" style="margin-right: 8px;">
-                        <span>批量处理模式（可同时上传多个文件）</span>
+                        <span data-i18n="batchMode">批量处理模式（可同时上传多个文件）</span>
                     </label>
                 </div>
                 <label class="file-input">
                     <input type="file" id="fileInput" accept="image/*,.pdf">
-                    <span id="fileLabel">点击或拖拽图片/PDF到此处</span>
+                    <span id="fileLabel" data-i18n="fileLabel">点击或拖拽图片/PDF到此处</span>
                 </label>
 
                 <div class="preview-wrapper">
-                    <p class="preview-title">原始文件预览</p>
+                    <p class="preview-title" data-i18n="previewTitle">原始文件预览</p>
                     <div class="preview-box" id="previewBox">
-                        <span class="placeholder">选择文件后会显示预览</span>
+                        <span class="placeholder" data-i18n="previewPlaceholder">选择文件后会显示预览</span>
                         <img id="imagePreview" alt="上传文件预览" hidden>
                     </div>
                 </div>
 
-                <button type="submit" class="primary-btn">开始识别</button>
+                <button type="submit" class="primary-btn" data-i18n="startRecognition">开始识别</button>
                 <p id="statusMessage" class="status-message"></p>
             </form>
         </section>
 
         <section class="panel results-panel">
             <div class="panel-header">
-                <h2>接口返回</h2>
-                <p>展示 FastAPI <code>POST /ocr</code> 返回的数据。</p>
+                <h2 data-i18n="apiResponse">接口返回</h2>
+                <p data-i18n-html="apiResponseDesc">展示 FastAPI <code>POST /ocr</code> 返回的数据。</p>
             </div>
 
             <div class="result-block">
-                <h3>预处理后的图片</h3>
+                <h3 data-i18n="preprocessedImage">预处理后的图片</h3>
                 <div id="pdfPageSelector" style="display:none; margin-bottom: 12px;">
-                    <label>选择页面: 
+                    <label data-i18n="selectPage">选择页面: 
                         <select id="pageSelect">
                         </select>
                     </label>
                     <span id="pageInfo" style="margin-left: 12px; color: #6b7280;"></span>
                 </div>
                 <div class="preview-box small">
-                    <span class="placeholder" id="processedPlaceholder">等待接口返回...</span>
+                    <span class="placeholder" id="processedPlaceholder" data-i18n="waiting">等待接口返回...</span>
                     <img id="processedPreview" alt="预处理图片" hidden>
                 </div>
             </div>
 
             <div class="result-block">
-                <h3>OCR 识别结果</h3>
-                <pre id="ocrResult" class="json-viewer">等待返回...</pre>
+                <h3 data-i18n="ocrResult">OCR 识别结果</h3>
+                <pre id="ocrResult" class="json-viewer" data-i18n="waiting">等待返回...</pre>
             </div>
 
             <div class="result-block">
-                <h3>结构化结果</h3>
-                <div id="structuredResult">等待返回...</div>
+                <h3 data-i18n="structuredResult">结构化结果</h3>
+                <div id="structuredResult" data-i18n="waiting">等待返回...</div>
             </div>
 
             <div class="result-block">
-                <h3>待校验字段清单</h3>
-                <div id="validationList">等待返回...</div>
+                <h3 data-i18n="validationList">待校验字段清单</h3>
+                <div id="validationList" data-i18n="waiting">等待返回...</div>
             </div>
 
             <div class="result-block">
-                <h3>字段修正</h3>
+                <h3 data-i18n="fieldEditor">字段修正</h3>
                 <div id="fieldEditor">
-                    <p>在下方修正字段值后，点击"重新生成"按钮</p>
+                    <p data-i18n="fieldEditorDesc">在下方修正字段值后，点击"重新生成"按钮</p>
                     <div id="editableFields"></div>
-                    <button id="regenerateBtn" class="primary-btn" style="display:none;">重新生成结构化结果</button>
+                    <button id="regenerateBtn" class="primary-btn" style="display:none;" data-i18n="regenerate">重新生成结构化结果</button>
                 </div>
             </div>
 
             <div class="result-block" id="batchResultsBlock" style="display:none;">
-                <h3>批量处理结果</h3>
+                <h3 data-i18n="batchResults">批量处理结果</h3>
                 <div id="batchResults">
                     <div id="batchSummary"></div>
                     <div id="batchDetails"></div>
@@ -95,6 +102,7 @@
         </section>
     </main>
 
+    <script src="i18n.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
