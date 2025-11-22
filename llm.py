@@ -1,6 +1,7 @@
 # 根据 configs/llms/init.json 中的配置，使用 LangChain 初始化 LLM 服务
 import json
 import os
+import re
 from typing import Any, Dict
 
 from dotenv import load_dotenv
@@ -220,19 +221,27 @@ class LLMService:
             return None
 
     def _strip_code_fences(self, text: str) -> str:
+        """去除 markdown 代码块标记，提取其中的 JSON 内容"""
         cleaned = text.strip()
         if not cleaned:
             return ""
 
+        # 使用正则表达式匹配 markdown 代码块：```json ... ``` 或 ``` ... ```
+        # 支持可选的 json 语言标识符
+        pattern = r'^```(?:json)?\s*\n?(.*?)\n?```\s*$'
+        match = re.search(pattern, cleaned, re.DOTALL | re.IGNORECASE)
+        if match:
+            return match.group(1).strip()
+        
+        # 如果没有匹配到完整的代码块，尝试查找第一个 { 和最后一个 }
+        # 这可以处理不完整的代码块标记
         if cleaned.startswith("```"):
-            cleaned = cleaned[3:]
-            cleaned = cleaned.lstrip()
-            if cleaned.lower().startswith("json"):
-                cleaned = cleaned[4:]
-            cleaned = cleaned.lstrip()
-            if "```" in cleaned:
-                cleaned = cleaned.rsplit("```", 1)[0]
-
+            # 移除开头的 ```
+            cleaned = re.sub(r'^```[a-zA-Z]*\s*\n?', '', cleaned, flags=re.IGNORECASE)
+            # 移除结尾的 ```
+            cleaned = re.sub(r'\n?```\s*$', '', cleaned)
+            return cleaned.strip()
+        
         return cleaned.strip()
 
 

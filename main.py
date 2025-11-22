@@ -14,6 +14,7 @@ from pdf_processor import is_pdf, process_pdf
 from pre_preocess import pre_preocess_for_pytesseract, pre_preocess_for_google_vision
 from structure import structure_ocr_result
 from output_generator import generate_output_files
+from structure_config import clean_json_file, check_structure_config, update_structure_config
 
 # 接口1：上传图片/PDF，进行预处理，ocr识别，llm处理，返回结果
 # 返回结果包括：原始图片、预处理后的图片、最终结构化的数据
@@ -27,6 +28,22 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.on_event("startup")
+async def startup_event():
+    """应用启动时执行清理操作"""
+    print("正在清理 JSON 配置文件...")
+    clean_json_file()
+    print("JSON 配置文件清理完成")
+    print("正在检查结构化配置文件...")
+    updated_json_file_name_list = check_structure_config()
+    print("结构化配置文件检查完成")
+    if len(updated_json_file_name_list) > 0:
+        print("正在更新结构化配置文件，数量：", len(updated_json_file_name_list))
+        update_structure_config(updated_json_file_name_list)
+        print("结构化配置文件更新完成，数量：", len(updated_json_file_name_list))
+    else:
+        print("结构化配置文件无需更新")
 
 @app.get("/")
 async def root():
