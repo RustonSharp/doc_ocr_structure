@@ -7,8 +7,12 @@ const i18n = {
         
         // 上传区域
         batchMode: "批量处理模式（可同时上传多个文件）",
+        folderMode: "选择文件夹（批量上传整个文件夹）",
         fileLabel: "点击或拖拽图片/PDF到此处",
         fileLabelBatch: "点击或拖拽多个图片/PDF到此处（批量处理）",
+        fileLabelFolder: "点击选择文件夹（将上传文件夹中的所有图片/PDF）",
+        fileSelectedFolder: "已选择文件夹，共 {count} 个文件: {list}",
+        fileSelectedFolderPlaceholder: "已选择文件夹，共 {count} 个文件，点击\"开始识别\"进行批量处理",
         fileSelected: "已选择: {name}",
         fileSelectedBatch: "已选择 {count} 个文件: {list}",
         fileSelectedBatchPlaceholder: "已选择 {count} 个文件，点击\"开始识别\"进行批量处理",
@@ -89,6 +93,9 @@ const i18n = {
         fileSelected: "Selected: {name}",
         fileSelectedBatch: "Selected {count} files: {list}",
         fileSelectedBatchPlaceholder: "Selected {count} files, click \"Start Recognition\" for batch processing",
+        fileLabelFolder: "Click to select folder (will upload all images/PDFs in the folder)",
+        fileSelectedFolder: "Folder selected, {count} files: {list}",
+        fileSelectedFolderPlaceholder: "Folder selected, {count} files, click \"Start Recognition\" to process",
         pdfPreview: "PDF file will display converted image after processing",
         previewPlaceholder: "Preview will be shown after selecting a file",
         startRecognition: "Start Recognition",

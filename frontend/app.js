@@ -15,6 +15,8 @@ const langText = document.getElementById("langText");
 let objectUrl;
 
 const batchModeCheckbox = document.getElementById("batchMode");
+const folderModeCheckbox = document.getElementById("folderMode");
+const folderModeContainer = document.getElementById("folderModeContainer");
 
 // 语言切换函数
 function toggleLanguage() {
@@ -44,6 +46,9 @@ function updateDynamicTexts() {
 if (batchModeCheckbox) {
     batchModeCheckbox.addEventListener("change", handleBatchModeChange);
 }
+if (folderModeCheckbox) {
+    folderModeCheckbox.addEventListener("change", handleFolderModeChange);
+}
 
 fileInput.addEventListener("change", handleFileChange);
 uploadForm.addEventListener("submit", handleFormSubmit);
@@ -60,11 +65,57 @@ function handleBatchModeChange(event) {
     if (!fileInputEl) return;
     
     if (isBatch) {
-        fileInputEl.setAttribute("multiple", "multiple");
-        fileLabel.textContent = t('fileLabelBatch');
+        // 显示文件夹模式选项
+        if (folderModeContainer) {
+            folderModeContainer.style.display = "block";
+        }
+        // 如果文件夹模式未选中，则使用multiple属性
+        if (!folderModeCheckbox || !folderModeCheckbox.checked) {
+            fileInputEl.setAttribute("multiple", "multiple");
+            fileInputEl.removeAttribute("webkitdirectory");
+            fileLabel.textContent = t('fileLabelBatch');
+        }
     } else {
+        // 隐藏文件夹模式选项
+        if (folderModeContainer) {
+            folderModeContainer.style.display = "none";
+        }
+        // 取消文件夹模式
+        if (folderModeCheckbox) {
+            folderModeCheckbox.checked = false;
+        }
         fileInputEl.removeAttribute("multiple");
+        fileInputEl.removeAttribute("webkitdirectory");
         fileLabel.textContent = t('fileLabel');
+    }
+    
+    // 清空文件选择
+    fileInputEl.value = "";
+    
+    // 重置预览
+    resetPreview();
+}
+
+function handleFolderModeChange(event) {
+    const isFolderMode = event.target.checked;
+    const fileInputEl = document.getElementById("fileInput");
+    
+    if (!fileInputEl) return;
+    
+    if (isFolderMode) {
+        // 文件夹模式：使用webkitdirectory，移除multiple
+        fileInputEl.setAttribute("webkitdirectory", "webkitdirectory");
+        fileInputEl.removeAttribute("multiple");
+        fileLabel.textContent = t('fileLabelFolder');
+    } else {
+        // 取消文件夹模式：使用multiple
+        fileInputEl.removeAttribute("webkitdirectory");
+        if (batchModeCheckbox && batchModeCheckbox.checked) {
+            fileInputEl.setAttribute("multiple", "multiple");
+            fileLabel.textContent = t('fileLabelBatch');
+        } else {
+            fileLabel.textContent = t('fileLabel');
+        }
     }
     
     // 清空文件选择
@@ -82,8 +133,28 @@ function handleFileChange(event) {
     }
 
     const isBatch = batchModeCheckbox && batchModeCheckbox.checked;
+    const isFolderMode = folderModeCheckbox && folderModeCheckbox.checked;
     
-    if (isBatch) {
+    if (isFolderMode) {
+        // 文件夹模式：显示文件夹信息和文件列表
+        const fileList = Array.from(files).map(f => {
+            // 显示相对路径，去掉文件夹路径前缀
+            const path = f.webkitRelativePath || f.name;
+            return path.split('/').pop(); // 只显示文件名
+        }).join(", ");
+        fileLabel.textContent = t('fileSelectedFolder', {
+            count: files.length,
+            list: fileList.substring(0, 100) + (fileList.length > 100 ? "..." : "")
+        });
+        
+        // 隐藏单文件预览
+        imagePreview.hidden = true;
+        const placeholder = previewBox.querySelector(".placeholder");
+        if (placeholder) {
+            placeholder.textContent = t('fileSelectedFolderPlaceholder', { count: files.length });
+            placeholder.removeAttribute("hidden");
+        }
+    } else if (isBatch) {
         // 批量模式：显示文件列表
         const fileList = Array.from(files).map(f => f.name).join(", ");
         fileLabel.textContent = t('fileSelectedBatch', {
