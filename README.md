@@ -1,209 +1,230 @@
-# OCR 与文本结构化一体化工具
+# OCR and Text Structuring Integrated Tool
 
-## 功能特性
+## Features
 
-- ✅ 支持单张图片（JPG/PNG）和 PDF 文件
-- ✅ 多 OCR 引擎支持（pytesseract、Google Cloud Vision）
-- ✅ 自动图像预处理（倾斜校正、去噪、水印抑制）
-- ✅ NLP 实体识别（日期、金额、手机号等）
-- ✅ LLM 智能结构化提取
-- ✅ 字段置信度评估（0-100）
-- ✅ 待校验字段清单生成
-- ✅ 可视化界面修正功能
-- ✅ 批量处理支持
+- ✅ Support for single images (JPG/PNG) and PDF files
+- ✅ Multiple OCR engine support (pytesseract, Google Cloud Vision)
+- ✅ Automatic image preprocessing (skew correction, denoising, watermark suppression)
+- ✅ NLP entity recognition (dates, amounts, phone numbers, etc.)
+- ✅ LLM intelligent structured extraction
+- ✅ Field confidence assessment (0-100)
+- ✅ Validation list generation for fields requiring review
+- ✅ Visual interface for field correction
+- ✅ Batch processing support
 
-## 快速开始
+## Quick Start
 
-### 1. 安装依赖
+### 1. Install Dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. 安装 spaCy 中文模型（可选，用于 NLP 实体识别）
+### 2. Install spaCy Chinese Model (Optional, for NLP entity recognition)
 
 ```bash
 python -m spacy download zh_core_web_sm
 ```
 
-如果没有安装中文模型，系统会自动使用正则表达式进行实体识别。
+If the Chinese model is not installed, the system will automatically use regular expressions for entity recognition.
 
-### 3. 配置环境变量
+### 3. Configure Environment Variables
 
-创建 `.env` 文件并配置：
+Create a `.env` file and configure:
 
 ```env
-# OpenAI API（如果使用 OpenAI）
+# OpenAI API (if using OpenAI)
 OPENAI_API_KEY=your_openai_api_key
 
-# Google Gemini API（如果使用 Google）
+# Google Gemini API (if using Google)
 GEMINI_API_KEY=your_gemini_api_key
 ```
 
-### 4. 启动后端服务
+### 4. Start Backend Service
 
 ```bash
 python main.py
 ```
 
-服务将在 `http://localhost:8000` 启动。
+The service will start at `http://localhost:8000`.
 
-### 5. 访问前端界面
+### 5. Access Frontend Interface
 
-有两种方式：
+There are two ways:
 
-#### 方式一：使用 HTTP 服务器（推荐）
+#### Method 1: Using HTTP Server (Recommended)
 
 ```bash
-# 在项目根目录下运行
+# Run in the project root directory
 cd frontend
 python -m http.server 8080
 ```
 
-然后访问：`http://localhost:8080`
+Then visit: `http://localhost:8080`
 
-#### 方式二：直接打开 HTML 文件
+#### Method 2: Open HTML File Directly
 
-直接打开 `frontend/index.html`，但需要确保：
-- 后端服务已启动
-- 浏览器允许跨域请求（可能需要配置）
+Open `frontend/index.html` directly, but ensure:
+- Backend service is running
+- Browser allows cross-origin requests (may need configuration)
 
-**注意**：如果直接打开 HTML 文件（file:// 协议），可能会遇到 CORS 错误。建议使用方式一。
+**Note**: If opening the HTML file directly (file:// protocol), you may encounter CORS errors. Method 1 is recommended.
 
-## API 接口
+## API Endpoints
 
-### 1. OCR 识别和结构化处理
+### Quick Reference
 
-```bash
-POST /ocr
-Content-Type: multipart/form-data
+- **Health Check**: `GET /health`
+- **OCR Processing**: `POST /ocr`
+- **Batch Processing**: `POST /batch`
+- **Regenerate Output**: `POST /regenerate`
 
-参数：
-- file: 图片或 PDF 文件
-- save_files: 是否保存输出文件（可选，默认 false）
-```
+### API Documentation
 
-### 2. 批量处理
+After starting the service, visit the following addresses to view complete documentation:
 
-```bash
-POST /batch
-Content-Type: multipart/form-data
+- **Swagger UI**: `http://localhost:8000/docs`
+- **ReDoc**: `http://localhost:8000/redoc`
 
-参数：
-- files: 文件列表
-- save_files: 是否保存输出文件（可选，默认 true）
-```
+Detailed API documentation: [docs/API.md](docs/API.md)
 
-### 3. API 文档
+## Output Files
 
-启动服务后，访问 `http://localhost:8000/docs` 查看完整的 API 文档。
+After processing, if `save_files=true` is set, the following files will be generated in the `output/` directory:
 
-## 输出文件
+- `{filename}_ocr_raw_text.txt` - OCR raw text
+- `{filename}_validation_list.csv` - Validation list for fields requiring review
+- `{filename}_structured.json` - Structured JSON result
 
-处理完成后，如果设置了 `save_files=true`，会在 `output/` 目录下生成：
+## Configuration Files
 
-- `{filename}_ocr_raw_text.txt` - OCR 原始文本
-- `{filename}_validation_list.csv` - 待校验字段清单
-- `{filename}_structured.json` - 结构化 JSON 结果
+Detailed configuration documentation: [docs/CONFIGURATION.md](docs/CONFIGURATION.md)
 
-## 配置文件
+### Quick Reference
 
-### OCR 配置 (`configs/ocr.json`)
+- **OCR Configuration**: `configs/ocr.json` - OCR engine configuration
+- **LLM Configuration**: `configs/llms/init.json` - LLM service configuration
+- **NLP Configuration**: `configs/nlp.json` - NLP processing configuration
+- **Structure Configuration**: `configs/structures/origin/` - Field extraction rules
 
-配置 OCR 引擎和相关参数。
+## Common Issues
 
-### LLM 配置 (`configs/llms/init.json`)
+### 1. "Failed to fetch" Error
 
-配置 LLM 服务提供商和模型。
+**Causes**:
+- Backend service not started
+- Frontend opened with file:// protocol (CORS restrictions)
+- Network connection issues
 
-### NLP 配置 (`configs/nlp.json`)
+**Solutions**:
+1. Ensure backend service is started: `python main.py`
+2. Use HTTP server to access frontend: `python -m http.server 8080`
+3. Check browser console for detailed error messages
 
-配置 NLP 处理选项和结构化配置文件路径。
+### 2. PDF Processing Failure
 
-### 结构化配置 (`configs/structures/origin/`)
+**Causes**:
+- PDF processing libraries not installed
 
-定义要提取的字段规则。
-
-## 常见问题
-
-### 1. "Failed to fetch" 错误
-
-**原因**：
-- 后端服务未启动
-- 前端使用 file:// 协议打开（CORS 限制）
-- 网络连接问题
-
-**解决方案**：
-1. 确保后端服务已启动：`python main.py`
-2. 使用 HTTP 服务器访问前端：`python -m http.server 8080`
-3. 检查浏览器控制台的详细错误信息
-
-### 2. PDF 处理失败
-
-**原因**：
-- 未安装 PDF 处理库
-
-**解决方案**：
+**Solutions**:
 ```bash
 pip install pdf2image PyMuPDF
-# Windows 还需要安装 poppler
-# 下载地址：https://github.com/oschwartz10612/poppler-windows/releases
+# Windows also requires poppler installation
+# Download: https://github.com/oschwartz10612/poppler-windows/releases
 ```
 
-### 3. spaCy 模型未找到
+### 3. spaCy Model Not Found
 
-**原因**：
-- 未下载中文模型
+**Causes**:
+- Chinese model not downloaded
 
-**解决方案**：
+**Solutions**:
 ```bash
 python -m spacy download zh_core_web_sm
 ```
 
-或者系统会自动使用正则表达式进行实体识别。
+Or the system will automatically use regular expressions for entity recognition.
 
-### 4. Google Cloud Vision 认证失败
+### 4. Google Cloud Vision Authentication Failure
 
-**原因**：
-- 凭证文件路径不正确
-- 凭证文件无效
+**Causes**:
+- Incorrect credential file path
+- Invalid credential file
 
-**解决方案**：
-1. 检查 `configs/ocr.json` 中的 `credentials_path`
-2. 确保 `credentials/google_vision.json` 文件存在且有效
+**Solutions**:
+1. Check `credentials_path` in `configs/ocr.json`
+2. Ensure `credentials/google_vision.json` file exists and is valid
 
-## 项目结构
+## Project Structure
 
 ```
 doc_ocr/
-├── main.py                 # FastAPI 主服务
-├── ocr.py                  # OCR 引擎管理
-├── structure.py            # 结构化处理
-├── llm.py                  # LLM 服务
-├── pdf_processor.py        # PDF 处理
-├── nlp_entity.py           # NLP 实体识别
-├── output_generator.py     # 输出文件生成
+├── main.py                 # FastAPI main service
+├── ocr.py                  # OCR engine management
+├── structure.py            # Structured processing
+├── llm.py                  # LLM service
+├── pdf_processor.py        # PDF processing
+├── nlp_entity.py           # NLP entity recognition
+├── output_generator.py     # Output file generation
 ├── schemas.py              # Pydantic Schema
-├── pre_preocess.py         # 图像预处理
-├── configs/                # 配置文件目录
+├── pre_preocess.py         # Image preprocessing
+├── configs/                # Configuration directory
 │   ├── ocr.json
 │   ├── nlp.json
 │   └── llms/
-├── frontend/               # 前端文件
+├── frontend/               # Frontend files
 │   ├── index.html
 │   ├── app.js
 │   └── styles.css
-└── output/                # 输出文件目录（自动创建）
+└── output/                # Output directory (auto-created)
 ```
 
-## 开发说明
+## Integration Guide
 
-- 所有功能通过函数/类方法暴露
-- 配置通过 JSON 文件传入，避免硬编码
-- 使用 Pydantic 定义输出 Schema
-- 代码结构清晰，易于维护和扩展
+### Django Integration
 
-## 许可证
+Detailed integration steps: [docs/INTEGRATION.md#django-integration](docs/INTEGRATION.md#django-integration)
+
+Quick start:
+
+```python
+from utils.ocr_client import ocr_client
+
+# Process file
+result = ocr_client.process_image(uploaded_file)
+structured_data = result['result']['structured_result']['structured_data']
+```
+
+### Other Frameworks
+
+- **Flask**: [docs/INTEGRATION.md#flask-integration](docs/INTEGRATION.md#flask-integration)
+- **FastAPI**: [docs/INTEGRATION.md#fastapi-integration](docs/INTEGRATION.md#fastapi-integration)
+- **Standalone Script**: [docs/INTEGRATION.md#standalone-python-script](docs/INTEGRATION.md#standalone-python-script)
+
+Complete integration documentation: [docs/INTEGRATION.md](docs/INTEGRATION.md)
+
+## Development Notes
+
+- All functionality exposed through functions/class methods
+- Configuration passed through JSON files, avoiding hardcoding
+- Pydantic used to define output schemas
+- Clear code structure, easy to maintain and extend
+
+## Documentation Index
+
+### English Documentation
+
+- [API Documentation](docs/API.md) - Complete API interface documentation and examples
+- [Configuration Documentation](docs/CONFIGURATION.md) - Detailed documentation for all configuration files
+- [Integration Guide](docs/INTEGRATION.md) - Detailed cases for integrating into different projects
+
+### 中文文档 (Chinese Documentation)
+
+- [API 详细文档](docs/API_CN.md) - 完整的 API 接口说明和示例
+- [配置文档](docs/CONFIGURATION_CN.md) - 所有配置文件的详细说明
+- [集成指南](docs/INTEGRATION_CN.md) - 集成到不同项目的详细案例
+
+## License
 
 MIT License
 
