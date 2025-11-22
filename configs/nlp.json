@@ -10,7 +10,7 @@
             "enabled": false,
             "method": "regex"
         },
-        "structure_config_path": "configs/structures/origin/invoice0.json"
+        "structure_config_path": "configs/structures/origin/resume0.json"
     }
 }
 

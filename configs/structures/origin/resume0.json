@@ -1,0 +1,21 @@
+{
+    "title": "resume",
+    "description": "resume",
+    "items": [
+        {
+            "field": "Name",
+            "description": "at the top center of the resume",
+            "type": "text"
+        },
+        {
+            "field":"age",
+            "description": "between 'Age:' and 'years old'",
+            "type": "number"
+        },
+        {
+            "field": "Email",
+            "description": "behind 'E-mail:'",
+            "type": "text"
+        }
+    ]
+}
