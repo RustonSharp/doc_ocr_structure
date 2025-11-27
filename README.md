@@ -11,6 +11,7 @@
 - ✅ Validation list generation for fields requiring review
 - ✅ Visual interface for field correction
 - ✅ Batch processing support
+- ✅ Unified logging system for problem tracking and performance analysis
 
 ## Quick Start
 
@@ -217,6 +218,7 @@ Complete integration documentation: [docs/INTEGRATION.md](docs/INTEGRATION.md)
 - [API Documentation](docs/API.md) - Complete API interface documentation and examples
 - [Configuration Documentation](docs/CONFIGURATION.md) - Detailed documentation for all configuration files
 - [Integration Guide](docs/INTEGRATION.md) - Detailed cases for integrating into different projects
+- [Logging Guide](docs/LOGGING.md) - Unified logging system for problem tracking and performance analysis
 
 ### 中文文档 (Chinese Documentation)
 

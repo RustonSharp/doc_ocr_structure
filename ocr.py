@@ -17,6 +17,10 @@ from typing import Any, Dict, Optional
 import pytesseract
 from PIL import Image
 
+from logging_config import get_logger, log_performance, log_exception
+
+logger = get_logger(__name__)
+
 
 class OCREngineType(Enum):
     """受支持的 OCR 引擎类型"""
@@ -36,6 +40,11 @@ class OCREngineManager:
         current_engine_name = self.config_data["ocr_engines"]["current"]
         self.current_engine: OCREngineType = self._to_engine_type(current_engine_name)
         self.previous_engine: Optional[OCREngineType] = None
+        
+        logger.info(
+            f"OCR引擎管理器初始化完成 - 当前引擎: {current_engine_name}",
+            extra={"context": {"current_engine": current_engine_name, "config_path": str(config_path)}}
+        )
 
     def switch_engine(
         self,
@@ -49,8 +58,10 @@ class OCREngineManager:
             if engine_name not in self.engine_configs:
                 raise ValueError(f"配置中不存在引擎: {engine_name}")
 
+            previous_engine = self.current_engine.value
             if config:
                 self.engine_configs[engine_name].update(config)
+                logger.info(f"更新引擎配置: {engine_name}", extra={"context": {"engine": engine_name, "config": config}})
 
             self.previous_engine = self.current_engine
             self.current_engine = engine_type
@@ -58,10 +69,15 @@ class OCREngineManager:
 
             if persist:
                 self._save_config()
+                logger.info(f"引擎切换已持久化到配置文件", extra={"context": {"engine": engine_name}})
 
+            logger.info(
+                f"OCR引擎切换成功: {previous_engine} -> {engine_name}",
+                extra={"context": {"previous_engine": previous_engine, "current_engine": engine_name}}
+            )
             return True
         except Exception as exc:
-            print(f"切换 OCR 引擎失败: {exc}")
+            log_exception(logger, f"切换OCR引擎失败: {engine_name}", extra_context={"engine_name": engine_name})
             return False
 
     def get_current_engine_info(self) -> Dict[str, Any]:
@@ -80,11 +96,25 @@ class OCREngineManager:
         dictionary_path: Optional[str] = None,
     ) -> Dict[str, Any]:
         """按照当前引擎处理图片"""
-        if self.current_engine == OCREngineType.PYTESSERACT:
-            return await self._process_with_pytesseract(image_data, config_file_name, dictionary_path)
-        if self.current_engine == OCREngineType.GOOGLE_CLOUD_VISION:
-            return await self._process_with_google_vision(image_data, config_file_name)
-        raise ValueError(f"不支持的 OCR 引擎: {self.current_engine}")
+        engine_name = self.current_engine.value
+        image_size = len(image_data)
+        
+        logger.debug(
+            f"开始OCR处理 - 引擎: {engine_name}, 图片大小: {image_size} bytes",
+            extra={"context": {"engine": engine_name, "image_size": image_size}}
+        )
+        
+        try:
+            if self.current_engine == OCREngineType.PYTESSERACT:
+                with log_performance(f"OCR处理(pytesseract)", logger, {"image_size": image_size}):
+                    return await self._process_with_pytesseract(image_data, config_file_name, dictionary_path)
+            if self.current_engine == OCREngineType.GOOGLE_CLOUD_VISION:
+                with log_performance(f"OCR处理(google-vision)", logger, {"image_size": image_size}):
+                    return await self._process_with_google_vision(image_data, config_file_name)
+            raise ValueError(f"不支持的 OCR 引擎: {self.current_engine}")
+        except Exception as e:
+            log_exception(logger, f"OCR处理失败 - 引擎: {engine_name}", extra_context={"engine": engine_name, "image_size": image_size})
+            raise
 
     async def _process_with_pytesseract(
         self,
@@ -152,6 +182,12 @@ class OCREngineManager:
                     confidences.append(confidence)
 
             avg_confidence = sum(confidences) / len(confidences) if confidences else 0
+            
+            text_length = len(text.strip())
+            logger.info(
+                f"pytesseract OCR完成 - 文本长度: {text_length}, 置信度: {avg_confidence:.2f}, 文本块数: {len(text_blocks)}",
+                extra={"context": {"text_length": text_length, "confidence": avg_confidence, "blocks": len(text_blocks), "language": languages}}
+            )
 
             return {
                 "text": text.strip(),
@@ -163,6 +199,7 @@ class OCREngineManager:
                 "structured_data": None,
             }
         except Exception as exc:
+            log_exception(logger, "pytesseract处理失败", extra_context={"error": str(exc)})
             raise RuntimeError(f"pytesseract 处理失败: {exc}") from exc
 
     async def _process_with_google_vision(
@@ -214,7 +251,14 @@ class OCREngineManager:
         # 应用后处理校正（如果启用）
         enable_post_process = engine_config.get("enable_post_process", True)
         if enable_post_process:
-            full_text = self._apply_post_process(full_text, engine_config)
+            with log_performance("OCR后处理校正", logger):
+                full_text = self._apply_post_process(full_text, engine_config)
+        
+        text_length = len(full_text.strip())
+        logger.info(
+            f"Google Cloud Vision OCR完成 - 文本长度: {text_length}, 置信度: {avg_confidence:.2f}, 语言: {language}",
+            extra={"context": {"text_length": text_length, "confidence": avg_confidence, "language": language}}
+        )
 
         return {
             "text": full_text.strip(),
@@ -369,10 +413,12 @@ class OCREngineManager:
                 custom_words_path = self._resolve_path(custom_words_path)
                 if custom_words_path and os.path.exists(custom_words_path):
                     processor = create_post_processor(custom_words_path)
-                    return processor.correct_text(text, use_fuzzy_match=True)
+                    corrected_text = processor.correct_text(text, use_fuzzy_match=True)
+                    logger.debug(f"后处理校正完成 - 原始长度: {len(text)}, 校正后长度: {len(corrected_text)}")
+                    return corrected_text
         except Exception as e:
             # 后处理失败不影响主流程
-            print(f"后处理校正失败: {e}")
+            logger.warning(f"后处理校正失败: {e}", extra={"context": {"error": str(e)}})
         
         return text
 

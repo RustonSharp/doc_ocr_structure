@@ -10,7 +10,11 @@ from langchain_openai import ChatOpenAI
 from langchain_ollama import ChatOllama
 from langchain_core.messages import AIMessage
 
+from logging_config import get_logger, log_performance, log_exception
+
 load_dotenv()
+
+logger = get_logger(__name__)
 
 
 class MockChatModel:
@@ -31,7 +35,16 @@ class LLMService:
         self.current_service = config["llm_services"]["current"]
         self.service_config = config["llm_services"]["services"][self.current_service]
         self.provider = self.service_config["provider"]
-        self.model = self._build_model()
+        
+        logger.info(f"初始化LLM服务 - Provider: {self.provider}, Service: {self.current_service}", 
+                   extra={"context": {"provider": self.provider, "service": self.current_service}})
+        
+        try:
+            self.model = self._build_model()
+            logger.info(f"LLM模型初始化成功 - Provider: {self.provider}, Model: {self.service_config.get('model', 'unknown')}")
+        except Exception as e:
+            log_exception(logger, f"LLM模型初始化失败 - Provider: {self.provider}", extra_context={"provider": self.provider})
+            raise
 
     def _build_model(self):
         if self.provider == "openai":
@@ -81,8 +94,22 @@ class LLMService:
         raise ValueError(f"不支持的 provider: {self.provider}")
 
     def generate_text(self, prompt: str) -> str:
-        response = self.model.invoke(prompt)
-        return self._extract_text(response)
+        prompt_length = len(prompt)
+        logger.debug(f"生成文本请求 - Provider: {self.provider}, Prompt长度: {prompt_length}", 
+                    extra={"context": {"provider": self.provider, "prompt_length": prompt_length}})
+        
+        try:
+            with log_performance(f"LLM文本生成({self.provider})", logger, {"prompt_length": prompt_length}):
+                response = self.model.invoke(prompt)
+                result = self._extract_text(response)
+                result_length = len(result)
+                logger.debug(f"文本生成完成 - Provider: {self.provider}, 响应长度: {result_length}", 
+                           extra={"context": {"provider": self.provider, "result_length": result_length}})
+                return result
+        except Exception as e:
+            log_exception(logger, f"LLM文本生成失败 - Provider: {self.provider}", 
+                         extra_context={"provider": self.provider, "prompt_length": prompt_length})
+            raise
 
     def format_json_into_professional(self, json_str: str) -> Dict[str, Any]:
         reference_json_str = self._load_reference_template()
@@ -98,8 +125,10 @@ class LLMService:
         result_text = self.generate_text(prompt)
         parsed = self._safe_parse_json(result_text)
         if parsed is None:
-            print("LLM 返回内容不是合法 JSON：", result_text)
+            logger.warning(f"LLM返回内容不是合法JSON - Provider: {self.provider}", 
+                          extra={"context": {"provider": self.provider, "result_preview": result_text[:200]}})
             return {}
+        logger.debug(f"JSON解析成功 - Provider: {self.provider}, 字段数: {len(parsed)}")
         return parsed
 
     def improve_json_structure(
@@ -176,7 +205,8 @@ class LLMService:
         parsed = self._safe_parse_json(result_text)
         
         if parsed is None:
-            print("LLM 返回内容不是合法 JSON：", result_text)
+            logger.warning(f"LLM结构化提取返回不是合法JSON - Provider: {self.provider}", 
+                          extra={"context": {"provider": self.provider, "result_preview": result_text[:200]}})
             # 返回空结构
             result = {}
             for item in structure_config.get("items", []):
@@ -184,6 +214,8 @@ class LLMService:
                 result[field_name] = None
             return result
         
+        extracted_count = sum(1 for v in parsed.values() if v is not None and v != "")
+        logger.debug(f"结构化数据提取成功 - Provider: {self.provider}, 已提取字段: {extracted_count}/{len(structure_config.get('items', []))}")
         return parsed
 
     def _load_reference_template(self) -> str:

@@ -11,6 +11,7 @@
 - ✅ 待校验字段清单生成
 - ✅ 可视化界面修正功能
 - ✅ 批量处理支持
+- ✅ 统一日志管理系统，便于问题追踪和性能分析
 
 ## 快速开始
 
@@ -217,6 +218,7 @@ structured_data = result['result']['structured_result']['structured_data']
 - [API 详细文档](docs/API_CN.md) - 完整的 API 接口说明和示例
 - [配置文档](docs/CONFIGURATION_CN.md) - 所有配置文件的详细说明
 - [集成指南](docs/INTEGRATION_CN.md) - 集成到不同项目的详细案例
+- [日志使用指南](docs/LOGGING.md) - 统一日志管理系统，便于问题追踪和性能分析
 
 ### English Documentation
 

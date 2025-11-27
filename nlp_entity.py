@@ -11,6 +11,10 @@ try:
 except ImportError:
     SPACY_AVAILABLE = False
 
+from logging_config import get_logger, log_performance
+
+logger = get_logger(__name__)
+
 
 class EntityRecognizer:
     """实体识别器"""
@@ -30,9 +34,10 @@ class EntityRecognizer:
             try:
                 self.nlp = spacy.load(model_name)
                 self.use_spacy = True
+                logger.info(f"spaCy模型加载成功: {model_name}", extra={"context": {"model_name": model_name}})
             except OSError:
-                print(f"警告: 未找到 spaCy 模型 '{model_name}'，将仅使用正则表达式")
-                print(f"安装命令: python -m spacy download {model_name}")
+                logger.warning(f"未找到spaCy模型 '{model_name}'，将仅使用正则表达式 - 安装命令: python -m spacy download {model_name}", 
+                             extra={"context": {"model_name": model_name}})
     
     def extract_entities(self, text: str) -> Dict[str, List[Dict[str, Any]]]:
         """
@@ -44,6 +49,7 @@ class EntityRecognizer:
         Returns:
             包含各种实体类型的字典
         """
+        text_length = len(text)
         entities = {
             "dates": [],
             "amounts": [],
@@ -54,26 +60,35 @@ class EntityRecognizer:
         
         # 使用 spaCy 提取（如果可用）
         if self.use_spacy and self.nlp:
-            doc = self.nlp(text)
-            for ent in doc.ents:
-                if ent.label_ in ["DATE", "TIME"]:
-                    entities["dates"].append({
-                        "text": ent.text,
-                        "start": ent.start_char,
-                        "end": ent.end_char,
-                        "label": ent.label_,
-                    })
+            with log_performance("spaCy实体提取", logger, {"text_length": text_length}):
+                doc = self.nlp(text)
+                spacy_count = 0
+                for ent in doc.ents:
+                    if ent.label_ in ["DATE", "TIME"]:
+                        entities["dates"].append({
+                            "text": ent.text,
+                            "start": ent.start_char,
+                            "end": ent.end_char,
+                            "label": ent.label_,
+                        })
+                        spacy_count += 1
+                if spacy_count > 0:
+                    logger.debug(f"spaCy提取到 {spacy_count} 个日期/时间实体")
         
         # 使用正则表达式补充提取
-        entities["dates"].extend(self._extract_dates_regex(text))
-        entities["amounts"].extend(self._extract_amounts_regex(text))
-        entities["phone_numbers"].extend(self._extract_phone_numbers_regex(text))
-        entities["emails"].extend(self._extract_emails_regex(text))
-        entities["ids"].extend(self._extract_ids_regex(text))
+        with log_performance("正则表达式实体提取", logger, {"text_length": text_length}):
+            entities["dates"].extend(self._extract_dates_regex(text))
+            entities["amounts"].extend(self._extract_amounts_regex(text))
+            entities["phone_numbers"].extend(self._extract_phone_numbers_regex(text))
+            entities["emails"].extend(self._extract_emails_regex(text))
+            entities["ids"].extend(self._extract_ids_regex(text))
         
         # 去重
         for key in entities:
             entities[key] = self._deduplicate_entities(entities[key])
+        
+        entity_counts = {k: len(v) for k, v in entities.items()}
+        logger.debug(f"实体提取完成 - 实体统计: {entity_counts}", extra={"context": {"entity_counts": entity_counts}})
         
         return entities
     

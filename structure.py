@@ -5,6 +5,9 @@ from typing import Any, Dict
 from llm import LLMService
 from nlp_entity import get_entity_recognizer
 from schemas import FieldConfidence, StructuredData
+from logging_config import get_logger, log_performance, log_exception
+
+logger = get_logger(__name__)
 
 
 def _clean_text(text: str, cleaning_config: Dict[str, Any]) -> str:
@@ -188,22 +191,29 @@ def structure_ocr_result(ocr_result: dict, config_file: str | None = None) -> Di
     # 6. NLP 实体识别
     entities = {}
     try:
-        recognizer = get_entity_recognizer()
-        entities = recognizer.extract_entities(cleaned_text)
+        with log_performance("NLP实体识别", logger, {"text_length": len(cleaned_text)}):
+            recognizer = get_entity_recognizer()
+            entities = recognizer.extract_entities(cleaned_text)
+            entity_counts = {k: len(v) for k, v in entities.items()}
+            logger.info(f"NLP实体识别完成 - 实体统计: {entity_counts}", extra={"context": {"entity_counts": entity_counts}})
     except Exception as e:
-        print(f"NLP 实体识别失败: {e}")
+        log_exception(logger, "NLP实体识别失败", extra_context={"text_length": len(cleaned_text)})
     
     # 7. 使用LLM提取结构化数据
     structured_data_raw = {}
     try:
-        llm_service = LLMService()
-        structured_data_raw = llm_service.improve_json_structure(
-            ocr_text=cleaned_text,
-            structure_config=structure_config,
-            ocr_result=ocr_result,
-        )
+        with log_performance("LLM结构化提取", logger, {"text_length": len(cleaned_text), "fields_count": len(structure_config.get("items", []))}):
+            llm_service = LLMService()
+            structured_data_raw = llm_service.improve_json_structure(
+                ocr_text=cleaned_text,
+                structure_config=structure_config,
+                ocr_result=ocr_result,
+            )
+            extracted_fields = sum(1 for v in structured_data_raw.values() if v is not None and v != "")
+            logger.info(f"LLM结构化提取完成 - 已提取字段: {extracted_fields}/{len(structure_config.get('items', []))}", 
+                       extra={"context": {"extracted_fields": extracted_fields, "total_fields": len(structure_config.get("items", []))}})
     except Exception as e:
-        print(f"LLM结构化处理失败: {e}")
+        log_exception(logger, "LLM结构化处理失败", extra_context={"text_length": len(cleaned_text)})
         # 返回空结构
         for item in structure_config.get("items", []):
             field_name = item.get("field", "")
@@ -244,6 +254,11 @@ def structure_ocr_result(ocr_result: dict, config_file: str | None = None) -> Di
         fields={k: v.model_dump() for k, v in fields_with_confidence.items()},
         coverage=round(coverage, 2),
         validation_list=validation_list,
+    )
+    
+    logger.info(
+        f"结构化处理完成 - 覆盖率: {coverage:.2f}%, 需校验字段: {len(validation_list)}",
+        extra={"context": {"coverage": coverage, "validation_count": len(validation_list), "total_fields": total_fields}}
     )
     
     # 11. 返回结果
