@@ -211,6 +211,27 @@ structured_data = result['result']['structured_result']['structured_data']
 - 使用 Pydantic 定义输出 Schema
 - 代码结构清晰，易于维护和扩展
 
+## 测试
+
+### 运行测试
+
+安装测试依赖：
+```bash
+pip install -r requirements-test.txt
+```
+
+运行所有测试：
+```bash
+pytest
+```
+
+运行并查看覆盖率：
+```bash
+pytest --cov=. --cov-report=html
+```
+
+更多详情请参考：[测试指南](docs/TESTING.md)
+
 ## 文档索引
 
 ### 中文文档
@@ -219,6 +240,7 @@ structured_data = result['result']['structured_result']['structured_data']
 - [配置文档](docs/CONFIGURATION_CN.md) - 所有配置文件的详细说明
 - [集成指南](docs/INTEGRATION_CN.md) - 集成到不同项目的详细案例
 - [日志使用指南](docs/LOGGING.md) - 统一日志管理系统，便于问题追踪和性能分析
+- [测试指南](docs/TESTING.md) - 单元测试和集成测试指南
 
 ### English Documentation
 

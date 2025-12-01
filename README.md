@@ -211,6 +211,27 @@ Complete integration documentation: [docs/INTEGRATION.md](docs/INTEGRATION.md)
 - Pydantic used to define output schemas
 - Clear code structure, easy to maintain and extend
 
+## Testing
+
+### Running Tests
+
+Install test dependencies:
+```bash
+pip install -r requirements-test.txt
+```
+
+Run all tests:
+```bash
+pytest
+```
+
+Run with coverage:
+```bash
+pytest --cov=. --cov-report=html
+```
+
+For more details, see [Testing Guide](docs/TESTING.md)
+
 ## Documentation Index
 
 ### English Documentation
@@ -219,6 +240,7 @@ Complete integration documentation: [docs/INTEGRATION.md](docs/INTEGRATION.md)
 - [Configuration Documentation](docs/CONFIGURATION.md) - Detailed documentation for all configuration files
 - [Integration Guide](docs/INTEGRATION.md) - Detailed cases for integrating into different projects
 - [Logging Guide](docs/LOGGING.md) - Unified logging system for problem tracking and performance analysis
+- [Testing Guide](docs/TESTING.md) - Unit testing and integration testing guide
 
 ### 中文文档 (Chinese Documentation)
 

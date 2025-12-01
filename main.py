@@ -2,6 +2,7 @@ import base64
 import json
 import re
 import time
+from contextlib import asynccontextmanager
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
@@ -21,12 +22,44 @@ from output_generator import generate_output_files
 from structure_config import clean_json_file, check_structure_config, update_structure_config
 from logging_config import get_logger, log_performance, log_exception
 
-# 接口1：上传图片/PDF，进行预处理，ocr识别，llm处理，返回结果
-# 返回结果包括：原始图片、预处理后的图片、最终结构化的数据
-app = FastAPI(title="OCR 与文本结构化一体化工具")
-
 # 获取日志记录器
 logger = get_logger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """应用生命周期管理：启动和关闭事件"""
+    # 启动时执行初始化
+    logger.info("应用启动，开始初始化...")
+    
+    try:
+        with log_performance("清理JSON配置文件", logger):
+            clean_json_file()
+        
+        with log_performance("检查结构化配置文件", logger):
+            updated_json_file_name_list = check_structure_config()
+        
+        if len(updated_json_file_name_list) > 0:
+            logger.info(f"发现需要更新的配置文件: {len(updated_json_file_name_list)}个")
+            with log_performance("更新结构化配置文件", logger, {"count": len(updated_json_file_name_list)}):
+                update_structure_config(updated_json_file_name_list)
+        else:
+            logger.info("结构化配置文件无需更新")
+        
+        logger.info("应用初始化完成")
+    except Exception as e:
+        log_exception(logger, "应用启动初始化失败", extra_context={"error": str(e)})
+        raise
+    
+    yield  # 应用运行期间
+    
+    # 关闭时执行清理（如果需要）
+    logger.info("应用正在关闭...")
+
+
+# 接口1：上传图片/PDF，进行预处理，ocr识别，llm处理，返回结果
+# 返回结果包括：原始图片、预处理后的图片、最终结构化的数据
+app = FastAPI(title="OCR 与文本结构化一体化工具", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -117,30 +150,6 @@ def generate_timestamped_name(base_name: str, is_pdf: bool = False, page_number:
     
     return dir_name, file_base_name
 
-
-@app.on_event("startup")
-async def startup_event():
-    """应用启动时执行清理操作"""
-    logger.info("应用启动，开始初始化...")
-    
-    try:
-        with log_performance("清理JSON配置文件", logger):
-            clean_json_file()
-        
-        with log_performance("检查结构化配置文件", logger):
-            updated_json_file_name_list = check_structure_config()
-        
-        if len(updated_json_file_name_list) > 0:
-            logger.info(f"发现需要更新的配置文件: {len(updated_json_file_name_list)}个")
-            with log_performance("更新结构化配置文件", logger, {"count": len(updated_json_file_name_list)}):
-                update_structure_config(updated_json_file_name_list)
-        else:
-            logger.info("结构化配置文件无需更新")
-        
-        logger.info("应用初始化完成")
-    except Exception as e:
-        log_exception(logger, "应用启动初始化失败", extra_context={"error": str(e)})
-        raise
 
 @app.get("/")
 async def root():
